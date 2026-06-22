@@ -8,6 +8,33 @@ const { checkRateLimit } = require('../middleware/rateLimiter');
 const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
 const { parseFile } = require('../services/fileParser');
 
+const MAX_MSG_LEN = 4000;
+
+async function sendLongMessage(chatId, text) {
+  if (text.length <= MAX_MSG_LEN) {
+    await bot.sendMessage(chatId, text);
+    return;
+  }
+
+  let remaining = text;
+  while (remaining) {
+    if (remaining.length <= MAX_MSG_LEN) {
+      await bot.sendMessage(chatId, remaining.trim());
+      break;
+    }
+
+    let splitAt = remaining.lastIndexOf('\n\n', MAX_MSG_LEN);
+    if (splitAt < MAX_MSG_LEN / 2) splitAt = remaining.lastIndexOf('\n', MAX_MSG_LEN);
+    if (splitAt < MAX_MSG_LEN / 2) splitAt = remaining.lastIndexOf(' ', MAX_MSG_LEN);
+    if (splitAt < MAX_MSG_LEN / 2) splitAt = MAX_MSG_LEN;
+
+    const chunk = remaining.slice(0, splitAt).trim();
+    remaining = remaining.slice(splitAt);
+
+    if (chunk) await bot.sendMessage(chatId, chunk);
+  }
+}
+
 function stripMarkdown(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -136,7 +163,7 @@ async function startBot() {
       const cleanText = isResearch ? text.slice('DRESEARCH'.length).trim() : text;
 
       const response = stripMarkdown(await processConversation(userId, chatId, cleanText, isResearch));
-      await bot.sendMessage(chatId, response);
+      await sendLongMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
       await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your message. Please try again.');
@@ -191,7 +218,7 @@ async function handleDocument(bot, msg) {
 
     const preamble = `I uploaded a file (${msg.document.file_name}):\n\n`;
     const response = stripMarkdown(await processConversation(userId, chatId, preamble + extracted));
-    await bot.sendMessage(chatId, response);
+    await sendLongMessage(chatId, response);
   } catch (error) {
     console.error('Error processing document:', error);
     await bot.sendMessage(chatId, 'Sorry, I couldn\'t read that file.');
