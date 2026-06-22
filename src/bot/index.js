@@ -6,19 +6,65 @@ const commandHandlers = require('../commands');
 const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
 const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
+const { parseFile } = require('../services/fileParser');
 
 let bot;
 
-async function getUserTimezone(userId) {
-  try {
-    const convo = await Conversation.findOne({ userId });
-    if (convo && convo.metadata && convo.metadata.get) {
-      return convo.metadata.get('timezone') || 'Africa/Cairo';
-    }
-  } catch {
-    // fall through
+async function getMetadata(conversation, key, fallback) {
+  if (conversation && conversation.metadata && conversation.metadata.get) {
+    const val = conversation.metadata.get(key);
+    return val || fallback;
   }
-  return 'Africa/Cairo';
+  return fallback;
+}
+
+async function processConversation(userId, chatId, userContent) {
+  await bot.sendChatAction(chatId, 'typing');
+
+  const timezone = await getMetadata(
+    await Conversation.findOne({ userId }).catch(() => null),
+    'timezone',
+    'Africa/Cairo',
+  );
+
+  let conversation = await Conversation.findOne({ userId });
+  if (!conversation) {
+    conversation = new Conversation({ userId, messages: [] });
+  }
+
+  const profile = await loadProfile(userId);
+  const userName = await getMetadata(conversation, 'userName', null);
+  const tone = await getMetadata(conversation, 'tone', null);
+
+  conversation.messages.push({
+    role: 'user',
+    content: userContent,
+    timestamp: new Date(),
+  });
+
+  const recentMessages = conversation.messages.slice(-config.maxContextMessages);
+  const openaiMessages = recentMessages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  const userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
+
+  const response = await generateWithTools(openaiMessages, toolRegistry, userContext, profile, userName, tone);
+
+  conversation.messages.push({
+    role: 'assistant',
+    content: response,
+    timestamp: new Date(),
+  });
+
+  await conversation.save();
+
+  if (await shouldUpdate(conversation)) {
+    updateProfile(userId, conversation, profile);
+  }
+
+  return response;
 }
 
 async function startBot() {
@@ -29,7 +75,12 @@ async function startBot() {
     const text = msg.text;
     const userId = String(msg.from.id);
 
-    if (!text) return;
+    if (!text) {
+      if (msg.document) {
+        await handleDocument(bot, msg);
+      }
+      return;
+    }
 
     if (!checkRateLimit(userId)) {
       return;
@@ -46,45 +97,7 @@ async function startBot() {
     }
 
     try {
-      await bot.sendChatAction(chatId, 'typing');
-
-      const timezone = await getUserTimezone(userId);
-
-      let conversation = await Conversation.findOne({ userId });
-      if (!conversation) {
-        conversation = new Conversation({ userId, messages: [] });
-      }
-
-      const profile = await loadProfile(userId);
-
-      conversation.messages.push({
-        role: 'user',
-        content: text,
-        timestamp: new Date(),
-      });
-
-      const recentMessages = conversation.messages.slice(-config.maxContextMessages);
-      const openaiMessages = recentMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
-
-      const response = await generateWithTools(openaiMessages, toolRegistry, userContext, profile);
-
-      conversation.messages.push({
-        role: 'assistant',
-        content: response,
-        timestamp: new Date(),
-      });
-
-      await conversation.save();
-
-      if (await shouldUpdate(conversation)) {
-        updateProfile(userId, conversation, profile);
-      }
-
+      const response = await processConversation(userId, chatId, text);
       await bot.sendMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -102,6 +115,37 @@ async function startBot() {
 
   console.log('Bot is running...');
   return bot;
+}
+
+async function handleDocument(bot, msg) {
+  const chatId = msg.chat.id;
+  const userId = String(msg.from.id);
+
+  if (!checkRateLimit(userId)) return;
+
+  try {
+    await bot.sendChatAction(chatId, 'typing');
+
+    const file = await bot.getFile(msg.document.file_id);
+    const fileUrl = `https://api.telegram.org/file/bot${config.telegramToken}/${file.file_path}`;
+
+    const res = await fetch(fileUrl);
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    const extracted = await parseFile(buffer, msg.document.mime_type, msg.document.file_name);
+
+    if (extracted === null) {
+      await bot.sendMessage(chatId, `Sorry, I can only read .txt, .pdf, and .docx files.`);
+      return;
+    }
+
+    const preamble = `I uploaded a file (${msg.document.file_name}):\n\n`;
+    const response = await processConversation(userId, chatId, preamble + extracted);
+    await bot.sendMessage(chatId, response);
+  } catch (error) {
+    console.error('Error processing document:', error);
+    await bot.sendMessage(chatId, 'Sorry, I couldn\'t read that file.');
+  }
 }
 
 function getBot() {

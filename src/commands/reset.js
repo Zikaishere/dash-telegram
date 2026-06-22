@@ -3,10 +3,13 @@ async function handler(bot, msg, Conversation) {
   const userId = String(msg.from.id);
 
   try {
-    await Conversation.findOneAndDelete({ userId });
+    await Conversation.findOneAndUpdate(
+      { userId },
+      { $set: { messages: [], 'metadata.tone': '' } },
+    );
     await bot.sendMessage(
       chatId,
-      '✅ Our conversation history has been cleared. We\'re starting fresh!',
+      'Conversation history cleared and tone reset. Your profile, timezone, and saved notes are kept.',
     );
   } catch (error) {
     console.error('Error resetting conversation:', error);

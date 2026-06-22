@@ -10,21 +10,26 @@ I'm powered by OpenRouter AI and keep our conversation history.
 Commands:
 /start - Welcome message
 /help - Show this help
-/reset - Clear our conversation history
-/timezone TZ - Set your timezone (e.g. /timezone Africa/Cairo)
+/reset - Clear conversation & reset tone
+/timezone TZ - Set your timezone
+/set_name Name - Set how I address you
+/set_tone Tone - Change my response style
+/wipe - Delete all your data permanently
 
 Things I can do:
 - Answer questions and have conversations
-- Set reminders at specific times (e.g. "remind me to buy groceries tomorrow at 5pm")
+- Set reminders at specific times (e.g. "remind me at 5pm")
 - Set timers (e.g. "set a timer for 10 minutes")
-- Check weather for any city (e.g. "what's the weather in Cairo?")
+- Check weather for any city
 - Search the web for current info
-- Remember things about you (project details, preferences, etc.)
+- Read uploaded files (.txt, .pdf, .docx)
+- Remember things about you permanently
 
 Tips:
-- Your timezone defaults to Africa/Cairo — use /timezone to change it
+- Timezone defaults to Africa/Cairo — change with /timezone
+- Available tones: casual, professional, concise, detailed
 - I remember our past messages for context
-- Use /reset to start a fresh conversation`,
+- /reset keeps your profile, /wipe removes everything`,
   );
 }
 

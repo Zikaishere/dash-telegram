@@ -1,6 +1,13 @@
 const OpenAI = require('openai');
 const config = require('../config');
 
+const TONE_MAP = {
+  casual: 'Be relaxed, friendly, and conversational. Use casual language and be warm.',
+  professional: 'Be formal and professional. Use precise language and maintain a business-like tone.',
+  concise: 'Be extremely brief. Answer in as few words as possible.',
+  detailed: 'Be thorough and detailed. Provide comprehensive explanations.',
+};
+
 const BASE_SYSTEM_CONTENT =
   'You are Dash, a helpful and intelligent personal AI assistant. ' +
   'You are concise, clear, and direct. ' +
@@ -8,7 +15,7 @@ const BASE_SYSTEM_CONTENT =
   'Do NOT use tables, markdown links, or complex formatting. Use plain text only. ' +
   '\n\n' +
   'TOOLS — call these immediately when the user asks:\n' +
-  '- create_reminder: when they want a reminder at a specific future date/time. Always convert to Egypt timezone (Africa/Cairo) unless the user has set a different timezone.\n' +
+  '- create_reminder: when they want a reminder at a specific future date/time. Always convert to the user\'s timezone.\n' +
   '- create_timer: when they say "set a timer for X minutes/seconds". Do NOT use create_reminder for short countdowns — use create_timer.\n' +
   '- get_weather: when they ask about the weather. Pass the city name from context.\n' +
   '- web_search: when they ask about current events, recent news, things you are not certain about, or anything needing up-to-date info.\n' +
@@ -35,8 +42,20 @@ function getClient() {
   return client;
 }
 
-function buildSystemMessage(userContext, profile) {
+function buildSystemMessage(userContext, profile, userName, tone) {
   let content = BASE_SYSTEM_CONTENT;
+
+  if (tone && TONE_MAP[tone]) {
+    content = content.replace(
+      'You are concise, clear, and direct.',
+      TONE_MAP[tone],
+    );
+  }
+
+  if (userName) {
+    content += `\n\nThe user's name is ${userName}. Address them by name when appropriate.`;
+  }
+
   if (userContext) {
     content += `\n\nCurrent user info:\n${userContext}`;
   }
@@ -59,13 +78,13 @@ async function generateResponse(messages, userContext) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile) {
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone) {
   const openai = getClient();
   const functionDefs = toolRegistry.getFunctionDefinitions();
 
   const requestOptions = {
     model: config.model,
-    messages: [buildSystemMessage(userContext, profile), ...messages],
+    messages: [buildSystemMessage(userContext, profile, userName, tone), ...messages],
     temperature: 0.7,
     max_tokens: 2000,
   };
@@ -106,7 +125,7 @@ async function generateWithTools(messages, toolRegistry, userContext, profile) {
     const finalCompletion = await openai.chat.completions.create({
       model: config.model,
       messages: [
-        buildSystemMessage(userContext, profile),
+        buildSystemMessage(userContext, profile, userName, tone),
         ...messages,
         choice.message,
         ...toolResults,

@@ -11,8 +11,11 @@ I can help you with tasks, answer questions, set reminders, check weather, searc
 Commands:
 /start - Show this message
 /help - Get help and usage info
-/reset - Clear our conversation history
-/timezone TZ - Set your timezone (e.g. /timezone Africa/Cairo)
+/reset - Clear conversation history
+/timezone TZ - Set your timezone
+/set_name Name - Set how I address you
+/set_tone Tone - Change my response style
+/wipe - Delete all your data
 
 Let's get started!`,
   );

@@ -10,6 +10,7 @@ const config = {
   openrouterBaseUrl: 'https://openrouter.ai/api/v1',
   siteUrl: process.env.SITE_URL || 'https://github.com/your-username/telegram-ai-assistant',
   siteName: process.env.SITE_NAME || 'TelegramAI',
+  adminIds: (process.env.ADMIN_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
 };
 
 const requiredKeys = ['telegramToken', 'openrouterApiKey'];
