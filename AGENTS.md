@@ -15,13 +15,28 @@
 - `src/database/models/Reminder.js` — Mongoose schema; `userId` + `remindAt` indexed, `notified` flag
 - `src/services/scheduler.js` — checks every 30s for due reminders and sends via bot
 - `src/commands/index.js` — flat map of `{commandName: handlerFn}`; each handler receives `(bot, msg, Conversation)`
-- `src/tools/` — `base.js` provides abstract `Tool` class; `reminder.js` implements reminder tool; `index.js` exports singleton `registry` with `ReminderTool` pre-registered
+- `src/tools/` — `base.js` provides abstract `Tool` class; `reminder.js`, `timer.js`, `weather.js`, `webSearch.js`, `notes.js` implement tools; `index.js` exports singleton `registry` with all tools pre-registered
+- `src/database/models/Note.js` — Mongoose schema; `userId` + `key` unique compound index, optional `tags` array
+- `src/middleware/rateLimiter.js` — In-memory rate limiter (4 msgs per 5s per user)
+- `src/commands/timezone.js` — `/timezone TZ` stores in `Conversation.metadata.timezone`
+
+## Tool System
+- `create_reminder(text, remindAt, userId)` — absolute datetime reminder via scheduled DB poll
+- `create_timer(text, duration_minutes, userId)` — relative countdown (uses same Reminder model)
+- `get_weather(city)` — free Open-Meteo API (no key); geocodes city, returns current + 3-day forecast
+- `web_search(query, max_results?)` — DuckDuckGo HTML search (free, no key)
+- `save_note(key, content, tags?, userId)` — upserts into `Note` collection; key is unique per user
+- `get_note(key, userId)` — returns by exact key
+- `search_notes(query, userId)` — regex search across key, content, tags; returns up to 10 matches
+- `delete_note(key, userId)` — removes note by key
 
 ## Reminder System
-- Flow: user asks → OpenAI calls `create_reminder` tool → DB save → scheduler polls every 30s → `bot.sendMessage()` on due
-- The AI receives a system prompt with the user's Telegram ID + timezone (Africa/Cairo). It passes `userId` as a parameter to the tool.
-- Reminder time is parsed by the AI as ISO 8601 with Egypt offset (UTC+2/+3).
+- Flow: user asks → OpenAI calls tool → DB save → scheduler polls every 30s → `bot.sendMessage()` on due
+- The AI receives a system prompt with the user's Telegram ID + timezone. It passes `userId` as a parameter to tools.
+- Reminder time is parsed by the AI as ISO 8601 with the user's timezone offset.
 - Commands use plain text (no Markdown parsing) to avoid formatting errors from AI output.
+- The `/timezone` command stores the user's IANA timezone in conversation metadata.
+- Rate limiter allows 4 messages per 5 seconds per user; excess messages are silently dropped.
 
 ## Conventions
 - CommonJS (`require` / `module.exports`)

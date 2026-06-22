@@ -4,8 +4,21 @@ const Conversation = require('../database/models/Conversation');
 const { generateWithTools } = require('../services/openrouter');
 const commandHandlers = require('../commands');
 const toolRegistry = require('../tools');
+const { checkRateLimit } = require('../middleware/rateLimiter');
 
 let bot;
+
+async function getUserTimezone(userId) {
+  try {
+    const convo = await Conversation.findOne({ userId });
+    if (convo && convo.metadata && convo.metadata.get) {
+      return convo.metadata.get('timezone') || 'Africa/Cairo';
+    }
+  } catch {
+    // fall through
+  }
+  return 'Africa/Cairo';
+}
 
 async function startBot() {
   bot = new TelegramBot(config.telegramToken, { polling: true });
@@ -13,8 +26,13 @@ async function startBot() {
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
+    const userId = String(msg.from.id);
 
     if (!text) return;
+
+    if (!checkRateLimit(userId)) {
+      return;
+    }
 
     const commandMatch = text.match(/^\/(\w+)/);
     if (commandMatch) {
@@ -29,9 +47,11 @@ async function startBot() {
     try {
       await bot.sendChatAction(chatId, 'typing');
 
-      let conversation = await Conversation.findOne({ userId: String(msg.from.id) });
+      const timezone = await getUserTimezone(userId);
+
+      let conversation = await Conversation.findOne({ userId });
       if (!conversation) {
-        conversation = new Conversation({ userId: String(msg.from.id), messages: [] });
+        conversation = new Conversation({ userId, messages: [] });
       }
 
       conversation.messages.push({
@@ -46,7 +66,7 @@ async function startBot() {
         content: m.content,
       }));
 
-      const userContext = `User ID: ${msg.from.id}\nTimezone: Africa/Cairo (Egypt)`;
+      const userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
 
       const response = await generateWithTools(openaiMessages, toolRegistry, userContext);
 

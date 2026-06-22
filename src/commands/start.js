@@ -6,12 +6,13 @@ async function handler(bot, msg) {
     chatId,
     `Hello ${firstName}! I'm Dash, your personal AI assistant.
 
-I can help you with tasks, answer questions, set reminders, and keep track of your projects and goals. Just send me a message.
+I can help you with tasks, answer questions, set reminders, check weather, search the web, and remember things about you. Just send a message.
 
 Commands:
 /start - Show this message
 /help - Get help and usage info
 /reset - Clear our conversation history
+/timezone TZ - Set your timezone (e.g. /timezone Africa/Cairo)
 
 Let's get started!`,
   );

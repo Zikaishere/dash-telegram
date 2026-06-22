@@ -29,8 +29,19 @@ class ToolRegistry {
 }
 
 const ReminderTool = require('./reminder');
+const TimerTool = require('./timer');
+const WeatherTool = require('./weather');
+const WebSearchTool = require('./webSearch');
+const { SaveNoteTool, GetNoteTool, SearchNotesTool, DeleteNoteTool } = require('./notes');
 
 const registry = new ToolRegistry();
 registry.register(new ReminderTool());
+registry.register(new TimerTool());
+registry.register(new WeatherTool());
+registry.register(new WebSearchTool());
+registry.register(new SaveNoteTool());
+registry.register(new GetNoteTool());
+registry.register(new SearchNotesTool());
+registry.register(new DeleteNoteTool());
 
 module.exports = registry;
