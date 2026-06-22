@@ -33,6 +33,7 @@ const TimerTool = require('./timer');
 const WeatherTool = require('./weather');
 const WebSearchTool = require('./webSearch');
 const { SaveNoteTool, GetNoteTool, SearchNotesTool, DeleteNoteTool } = require('./notes');
+const CreatePdfTool = require('./pdf');
 
 const registry = new ToolRegistry();
 registry.register(new ReminderTool());
@@ -43,5 +44,6 @@ registry.register(new SaveNoteTool());
 registry.register(new GetNoteTool());
 registry.register(new SearchNotesTool());
 registry.register(new DeleteNoteTool());
+registry.register(new CreatePdfTool());
 
 module.exports = registry;

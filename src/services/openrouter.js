@@ -23,6 +23,7 @@ const BASE_SYSTEM_CONTENT =
   '- get_note: when they ask about something specific you might have saved.\n' +
   '- search_notes: when you are not sure of the exact key, search their notes by keyword.\n' +
   '- delete_note: when they ask you to forget or remove something.\n' +
+  '- create_pdf: when they ask for a report, document, summary, or anything as a PDF file. Format the content using markdown-like syntax (## headings, **bold**, - lists).\n' +
   '\n' +
   'Do NOT ask the user for confirmation before calling a tool. Just call it.';
 
