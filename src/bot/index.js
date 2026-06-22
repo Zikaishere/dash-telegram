@@ -98,11 +98,12 @@ async function processConversation(userId, chatId, userContent, isResearch) {
     userContext +=
       '\n\nResearch Mode: ON\n' +
       'Deeply research the user\'s query. Use web_search multiple times from different angles to gather comprehensive information. ' +
-      'Then compile everything into a thorough, well-structured report. Finally, use create_pdf to send the report as a PDF document. ' +
-      'Be exhaustive — cover background, key details, examples, and conclusions.';
+      'Then compile everything into a thorough, well-structured report. ' +
+      'CRITICAL: You MUST call create_pdf to send the report as a PDF. Do NOT output the report content as text. ' +
+      'After calling create_pdf, reply with a short confirmation like "PDF report sent."';
   }
 
-  const maxTokens = isResearch ? 8000 : undefined;
+  const maxTokens = isResearch ? 16000 : undefined;
   const response = await generateWithTools(
     openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens,
   );
