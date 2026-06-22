@@ -1,0 +1,19 @@
+{
+  "name": "telegram-ai-assistant",
+  "version": "1.0.0",
+  "description": "Personal AI Assistant powered by Telegram + OpenRouter + MongoDB",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.9.5",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.82.0"
+  }
+}
