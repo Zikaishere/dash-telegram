@@ -14,6 +14,7 @@
 - `src/database/models/Conversation.js` — Mongoose schema; `userId` is unique, messages are embedded subdocs
 - `src/database/models/Reminder.js` — Mongoose schema; `userId` + `remindAt` indexed, `notified` flag
 - `src/services/scheduler.js` — checks every 30s for due reminders and sends via bot
+- `src/services/profileService.js` — builds/updates a persistent user profile every 30 user messages; stored in `Conversation.metadata.profile` and injected into the system prompt on every message
 - `src/commands/index.js` — flat map of `{commandName: handlerFn}`; each handler receives `(bot, msg, Conversation)`
 - `src/tools/` — `base.js` provides abstract `Tool` class; `reminder.js`, `timer.js`, `weather.js`, `webSearch.js`, `notes.js` implement tools; `index.js` exports singleton `registry` with all tools pre-registered
 - `src/database/models/Note.js` — Mongoose schema; `userId` + `key` unique compound index, optional `tags` array

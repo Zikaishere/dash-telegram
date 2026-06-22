@@ -35,20 +35,23 @@ function getClient() {
   return client;
 }
 
-function buildSystemMessage(userContext) {
+function buildSystemMessage(userContext, profile) {
   let content = BASE_SYSTEM_CONTENT;
   if (userContext) {
     content += `\n\nCurrent user info:\n${userContext}`;
   }
+  if (profile) {
+    content += `\n\nKnown information about the user:\n${profile}`;
+  }
   return { role: 'system', content };
 }
 
-async function generateResponse(messages) {
+async function generateResponse(messages, userContext) {
   const openai = getClient();
 
   const completion = await openai.chat.completions.create({
     model: config.model,
-    messages: [buildSystemMessage(), ...messages],
+    messages: [buildSystemMessage(userContext), ...messages],
     temperature: 0.7,
     max_tokens: 2000,
   });
@@ -56,13 +59,13 @@ async function generateResponse(messages) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext) {
+async function generateWithTools(messages, toolRegistry, userContext, profile) {
   const openai = getClient();
   const functionDefs = toolRegistry.getFunctionDefinitions();
 
   const requestOptions = {
     model: config.model,
-    messages: [buildSystemMessage(userContext), ...messages],
+    messages: [buildSystemMessage(userContext, profile), ...messages],
     temperature: 0.7,
     max_tokens: 2000,
   };
@@ -103,7 +106,7 @@ async function generateWithTools(messages, toolRegistry, userContext) {
     const finalCompletion = await openai.chat.completions.create({
       model: config.model,
       messages: [
-        buildSystemMessage(userContext),
+        buildSystemMessage(userContext, profile),
         ...messages,
         choice.message,
         ...toolResults,

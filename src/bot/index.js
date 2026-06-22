@@ -5,6 +5,7 @@ const { generateWithTools } = require('../services/openrouter');
 const commandHandlers = require('../commands');
 const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
+const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
 
 let bot;
 
@@ -54,6 +55,8 @@ async function startBot() {
         conversation = new Conversation({ userId, messages: [] });
       }
 
+      const profile = await loadProfile(userId);
+
       conversation.messages.push({
         role: 'user',
         content: text,
@@ -68,7 +71,7 @@ async function startBot() {
 
       const userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
 
-      const response = await generateWithTools(openaiMessages, toolRegistry, userContext);
+      const response = await generateWithTools(openaiMessages, toolRegistry, userContext, profile);
 
       conversation.messages.push({
         role: 'assistant',
@@ -77,6 +80,10 @@ async function startBot() {
       });
 
       await conversation.save();
+
+      if (await shouldUpdate(conversation)) {
+        updateProfile(userId, conversation, profile);
+      }
 
       await bot.sendMessage(chatId, response);
     } catch (error) {
