@@ -18,7 +18,7 @@ async function getMetadata(conversation, key, fallback) {
   return fallback;
 }
 
-async function processConversation(userId, chatId, userContent) {
+async function processConversation(userId, chatId, userContent, isResearch) {
   await bot.sendChatAction(chatId, 'typing');
 
   const timezone = await getMetadata(
@@ -48,9 +48,19 @@ async function processConversation(userId, chatId, userContent) {
     content: m.content,
   }));
 
-  const userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
+  let userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
+  if (isResearch) {
+    userContext +=
+      '\n\nResearch Mode: ON\n' +
+      'Deeply research the user\'s query. Use web_search multiple times from different angles to gather comprehensive information. ' +
+      'Then compile everything into a thorough, well-structured report. Finally, use create_pdf to send the report as a PDF document. ' +
+      'Be exhaustive — cover background, key details, examples, and conclusions.';
+  }
 
-  const response = await generateWithTools(openaiMessages, toolRegistry, userContext, profile, userName, tone);
+  const maxTokens = isResearch ? 8000 : undefined;
+  const response = await generateWithTools(
+    openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens,
+  );
 
   conversation.messages.push({
     role: 'assistant',
@@ -104,7 +114,10 @@ async function startBot() {
     }
 
     try {
-      const response = await processConversation(userId, chatId, text);
+      const isResearch = text.startsWith('DRESEARCH');
+      const cleanText = isResearch ? text.slice('DRESEARCH'.length).trim() : text;
+
+      const response = await processConversation(userId, chatId, cleanText, isResearch);
       await bot.sendMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);

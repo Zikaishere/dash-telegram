@@ -79,66 +79,62 @@ async function generateResponse(messages, userContext) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone) {
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens) {
   const openai = getClient();
   const functionDefs = toolRegistry.getFunctionDefinitions();
 
-  const requestOptions = {
-    model: config.model,
-    messages: [buildSystemMessage(userContext, profile, userName, tone), ...messages],
-    temperature: 0.7,
-    max_tokens: 2000,
-  };
+  const systemMsg = buildSystemMessage(userContext, profile, userName, tone);
+  const currentMessages = [systemMsg, ...messages];
 
-  if (functionDefs.length > 0) {
-    requestOptions.tools = functionDefs;
-    requestOptions.tool_choice = 'auto';
-  }
+  let iterations = 0;
+  const MAX_ITERATIONS = 15;
 
-  const completion = await openai.chat.completions.create(requestOptions);
-  const choice = completion.choices[0];
+  while (iterations < MAX_ITERATIONS) {
+    iterations++;
 
-  if (choice.finish_reason === 'tool_calls' && choice.message.tool_calls) {
-    const toolResults = [];
-
-    for (const toolCall of choice.message.tool_calls) {
-      try {
-        const tool = toolRegistry.get(toolCall.function.name);
-        if (tool) {
-          const params = JSON.parse(toolCall.function.arguments);
-          const result = await tool.execute(params);
-          toolResults.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: String(result),
-          });
-        }
-      } catch (err) {
-        console.error(`Error executing tool ${toolCall.function.name}:`, err);
-        toolResults.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: `Error: ${err.message}`,
-        });
-      }
-    }
-
-    const finalCompletion = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: config.model,
-      messages: [
-        buildSystemMessage(userContext, profile, userName, tone),
-        ...messages,
-        choice.message,
-        ...toolResults,
-      ],
+      messages: currentMessages,
+      tools: functionDefs.length > 0 ? functionDefs : undefined,
+      tool_choice: 'auto',
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: maxTokens || 2000,
     });
 
-    return finalCompletion.choices[0].message.content;
+    const choice = completion.choices[0];
+
+    if (choice.finish_reason === 'tool_calls' && choice.message.tool_calls) {
+      currentMessages.push(choice.message);
+
+      for (const toolCall of choice.message.tool_calls) {
+        try {
+          const tool = toolRegistry.get(toolCall.function.name);
+          if (tool) {
+            const params = JSON.parse(toolCall.function.arguments);
+            const result = await tool.execute(params);
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: String(result),
+            });
+          }
+        } catch (err) {
+          console.error(`Error executing tool ${toolCall.function.name}:`, err);
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: `Error: ${err.message}`,
+          });
+        }
+      }
+
+      continue;
+    }
+
+    return choice.message.content;
   }
 
-  return choice.message.content;
+  return 'Reached maximum tool call iterations. Please try a simpler request.';
 }
 
 module.exports = { generateResponse, generateWithTools, buildSystemMessage };
