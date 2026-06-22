@@ -68,7 +68,14 @@ async function processConversation(userId, chatId, userContent) {
 }
 
 async function startBot() {
-  bot = new TelegramBot(config.telegramToken, { polling: true });
+  bot = new TelegramBot(config.telegramToken, {
+    polling: {
+      interval: 2000,
+      params: {
+        timeout: 35,
+      },
+    },
+  });
 
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
@@ -105,8 +112,20 @@ async function startBot() {
     }
   });
 
-  bot.on('polling_error', (error) => {
-    console.error('Telegram polling error:', error);
+  bot.on('polling_error', async (error) => {
+    console.error('Telegram polling error:', error.message);
+
+    // ECONNRESET is a transient network issue — restart polling to recover
+    if (error.code === 'EFATAL' || error.message.includes('ECONNRESET')) {
+      try {
+        await bot.stopPolling();
+      } catch {
+        // already stopped
+      }
+      setTimeout(() => {
+        bot.startPolling().catch((e) => console.error('Polling restart failed:', e.message));
+      }, 3000);
+    }
   });
 
   bot.on('webhook_error', (error) => {
