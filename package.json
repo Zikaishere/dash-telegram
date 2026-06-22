@@ -16,6 +16,6 @@
     "mongoose": "^8.9.5",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.82.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^1.1.4"
   }
 }
