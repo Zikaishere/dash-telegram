@@ -8,6 +8,25 @@ const { checkRateLimit } = require('../middleware/rateLimiter');
 const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
 const { parseFile } = require('../services/fileParser');
 
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/^###\s/gm, '')
+    .replace(/^##\s/gm, '')
+    .replace(/^#\s/gm, '')
+    .replace(/^>\s/gm, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/!\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/^[-*]\s/gm, '\u2022 ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 let bot;
 
 async function getMetadata(conversation, key, fallback) {
@@ -117,7 +136,7 @@ async function startBot() {
       const isResearch = text.startsWith('DRESEARCH');
       const cleanText = isResearch ? text.slice('DRESEARCH'.length).trim() : text;
 
-      const response = await processConversation(userId, chatId, cleanText, isResearch);
+      const response = stripMarkdown(await processConversation(userId, chatId, cleanText, isResearch));
       await bot.sendMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
@@ -172,7 +191,7 @@ async function handleDocument(bot, msg) {
     }
 
     const preamble = `I uploaded a file (${msg.document.file_name}):\n\n`;
-    const response = await processConversation(userId, chatId, preamble + extracted);
+    const response = stripMarkdown(await processConversation(userId, chatId, preamble + extracted));
     await bot.sendMessage(chatId, response);
   } catch (error) {
     console.error('Error processing document:', error);
