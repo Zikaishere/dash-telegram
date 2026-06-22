@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { connectDatabase, disconnectDatabase } = require('./database');
 const { startBot } = require('./bot');
+const { startScheduler, stopScheduler } = require('./services/scheduler');
 const config = require('./config');
 
 const app = express();
@@ -21,6 +22,8 @@ async function main() {
 
     await startBot();
 
+    startScheduler();
+
     app.listen(config.port, () => {
       console.log(`Server running on port ${config.port}`);
     });
@@ -32,12 +35,14 @@ async function main() {
 
 process.on('SIGINT', async () => {
   console.log('Shutting down gracefully...');
+  stopScheduler();
   await disconnectDatabase();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('Shutting down gracefully...');
+  stopScheduler();
   await disconnectDatabase();
   process.exit(0);
 });

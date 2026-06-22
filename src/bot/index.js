@@ -1,8 +1,9 @@
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
 const Conversation = require('../database/models/Conversation');
-const { generateResponse } = require('../services/openrouter');
+const { generateWithTools } = require('../services/openrouter');
 const commandHandlers = require('../commands');
+const toolRegistry = require('../tools');
 
 let bot;
 
@@ -45,7 +46,9 @@ async function startBot() {
         content: m.content,
       }));
 
-      const response = await generateResponse(openaiMessages);
+      const userContext = `User ID: ${msg.from.id}\nTimezone: Africa/Cairo (Egypt)`;
+
+      const response = await generateWithTools(openaiMessages, toolRegistry, userContext);
 
       conversation.messages.push({
         role: 'assistant',
@@ -55,7 +58,7 @@ async function startBot() {
 
       await conversation.save();
 
-      await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
       await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your message. Please try again.');

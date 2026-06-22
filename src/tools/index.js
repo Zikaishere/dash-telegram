@@ -28,6 +28,9 @@ class ToolRegistry {
   }
 }
 
+const ReminderTool = require('./reminder');
+
 const registry = new ToolRegistry();
+registry.register(new ReminderTool());
 
 module.exports = registry;
