@@ -42,20 +42,25 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function retry(fn, maxRetries = 3) {
+async function retry(fn, maxRetries = 4) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (err) {
-      const isRetryable = err.message && (
-        err.message.includes('ERR_STREAM_PREMATURE_CLOSE') ||
-        err.message.includes('ECONNRESET') ||
-        err.message.includes('ETIMEDOUT') ||
-        err.message.includes('5') ||
-        err.status >= 500
+      const msg = err.message || '';
+      const code = err.code || err.errno || '';
+      const isRetryable = (
+        msg.includes('Premature close') ||
+        msg.includes('ECONNRESET') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('5') ||
+        code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+        code === 'ECONNRESET' ||
+        err.status >= 500 ||
+        err.type === 'system'
       );
       if (isRetryable && i < maxRetries - 1) {
-        console.log(`API call failed (${err.message}), retry ${i + 1}/${maxRetries}...`);
+        console.log(`API call failed (${msg}), retry ${i + 1}/${maxRetries}...`);
         await sleep((i + 1) * 2000);
         continue;
       }
