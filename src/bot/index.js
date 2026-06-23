@@ -74,73 +74,96 @@ function keepTyping(chatId) {
 
 async function processConversation(userId, chatId, userContent, isResearch, imageUrl) {
   const stopTyping = keepTyping(chatId);
+  try {
+    const timezone = await getMetadata(
+      await Conversation.findOne({ userId }).catch(() => null),
+      'timezone',
+      'Africa/Cairo',
+    );
 
-  const timezone = await getMetadata(
-    await Conversation.findOne({ userId }).catch(() => null),
-    'timezone',
-    'Africa/Cairo',
-  );
-
-  let conversation = await Conversation.findOne({ userId });
-  if (!conversation) {
-    conversation = new Conversation({ userId, messages: [] });
-  }
-
-  const profile = await loadProfile(userId);
-  const userName = await getMetadata(conversation, 'userName', null);
-  const tone = await getMetadata(conversation, 'tone', null);
-
-  conversation.messages.push({
-    role: 'user',
-    content: userContent,
-    timestamp: new Date(),
-  });
-
-  const recentMessages = conversation.messages.slice(-config.maxContextMessages);
-  const openaiMessages = recentMessages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  if (imageUrl) {
-    const last = openaiMessages[openaiMessages.length - 1];
-    if (last && last.role === 'user') {
-      last.content = [
-        { type: 'text', text: String(last.content) },
-        { type: 'image_url', image_url: { url: imageUrl, detail: 'auto' } },
-      ];
+    let conversation = await Conversation.findOne({ userId });
+    if (!conversation) {
+      conversation = new Conversation({ userId, messages: [] });
     }
+
+    const profile = await loadProfile(userId);
+    const userName = await getMetadata(conversation, 'userName', null);
+    const tone = await getMetadata(conversation, 'tone', null);
+
+    if (imageUrl) {
+      userContent = userContent + '\n[Image: ' + imageUrl + ']';
+    }
+
+    conversation.messages.push({
+      role: 'user',
+      content: userContent,
+      timestamp: new Date(),
+    });
+
+    const recentMessages = conversation.messages.slice(-config.maxContextMessages);
+    let openaiMessages = recentMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    if (imageUrl && config.visionModel !== config.model) {
+      const last = openaiMessages[openaiMessages.length - 1];
+      if (last && last.role === 'user') {
+        last.content = [
+          { type: 'text', text: userContent },
+          { type: 'image_url', image_url: { url: imageUrl, detail: 'auto' } },
+        ];
+      }
+    }
+
+    let userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
+    if (isResearch) {
+      userContext +=
+        '\n\nResearch Mode: ON\n' +
+        'Deeply research the user\'s query. Use web_search multiple times from different angles to gather comprehensive information. ' +
+        'Then compile everything into a thorough, well-structured report. ' +
+        'CRITICAL: You MUST call create_pdf to send the report as a PDF. Do NOT output the report content as text. ' +
+        'After calling create_pdf, reply with a short confirmation like "PDF report sent."';
+    }
+
+    const maxTokens = isResearch ? 16000 : undefined;
+    const overrideModel = imageUrl && config.visionModel !== config.model ? config.visionModel : undefined;
+    let response;
+    try {
+      response = await generateWithTools(
+        openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel,
+      );
+    } catch (err) {
+      if (overrideModel) {
+        console.error('Vision model failed, falling back to default:', err.message);
+        const last = openaiMessages[openaiMessages.length - 1];
+        if (last && last.role === 'user') {
+          last.content = userContent;
+        }
+        response = await generateWithTools(
+          openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, undefined,
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    conversation.messages.push({
+      role: 'assistant',
+      content: response,
+      timestamp: new Date(),
+    });
+
+    await conversation.save();
+
+    if (await shouldUpdate(conversation)) {
+      updateProfile(userId, conversation, profile);
+    }
+
+    return response;
+  } finally {
+    stopTyping();
   }
-
-  let userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
-  if (isResearch) {
-    userContext +=
-      '\n\nResearch Mode: ON\n' +
-      'Deeply research the user\'s query. Use web_search multiple times from different angles to gather comprehensive information. ' +
-      'Then compile everything into a thorough, well-structured report. ' +
-      'CRITICAL: You MUST call create_pdf to send the report as a PDF. Do NOT output the report content as text. ' +
-      'After calling create_pdf, reply with a short confirmation like "PDF report sent."';
-  }
-
-  const maxTokens = isResearch ? 16000 : undefined;
-  const response = await generateWithTools(
-    openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, imageUrl ? config.visionModel : undefined,
-  );
-
-  conversation.messages.push({
-    role: 'assistant',
-    content: response,
-    timestamp: new Date(),
-  });
-
-  await conversation.save();
-
-  if (await shouldUpdate(conversation)) {
-    updateProfile(userId, conversation, profile);
-  }
-
-  stopTyping();
-  return response;
 }
 
 async function startBot() {
