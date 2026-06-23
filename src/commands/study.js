@@ -8,7 +8,7 @@ async function handler(bot, msg, Conversation) {
     return;
   }
 
-  const current = conversation.metadata?.studyMode === true;
+  const current = conversation.metadata?.get('studyMode') === 'true';
   await Conversation.findOneAndUpdate(
     { userId },
     { $set: { 'metadata.studyMode': !current } },
