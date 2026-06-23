@@ -14,6 +14,8 @@ Commands:
 /timezone TZ - Set your timezone
 /set_name Name - Set how I address you
 /set_tone Tone - Change my response style
+/study - Toggle study mode on/off
+/timetable [week|today|month] - Generate visual PDF schedule
 /wipe - Delete all your data permanently
 
 Things I can do:
@@ -24,6 +26,11 @@ Things I can do:
 - Search the web for current info
 - Read uploaded files (.txt, .pdf, .docx)
 - Remember things about you permanently
+- Manage your calendar & events
+- Track tasks with priority and due dates
+- Create flashcards and quiz you (turn on with /study)
+- Start Pomodoro study sessions
+- Generate PDF timetable of your schedule
 
 Tips:
 - Timezone defaults to Africa/Cairo — change with /timezone

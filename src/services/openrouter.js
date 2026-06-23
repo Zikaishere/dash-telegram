@@ -24,6 +24,17 @@ const BASE_SYSTEM_CONTENT =
   '- search_notes: when you are not sure of the exact key, search their notes by keyword.\n' +
   '- delete_note: when they ask you to forget or remove something.\n' +
   '- create_pdf: when they ask for a report, document, summary, or anything as a PDF file. Format the content using markdown-like syntax (## headings, **bold**, - lists).\n' +
+  '- add_event: when they say "schedule" or "add to calendar" or "I have an event on [date]". Always convert to the user\'s timezone. Pass the userId from context.\n' +
+  '- get_events: when they ask "what\'s on my calendar" or "what events do I have".\n' +
+  '- delete_event: when they want to remove an event.\n' +
+  '- add_task: when they say "I need to do X" or "add a task" or "remind me to do X" (for tasks, not timed reminders).\n' +
+  '- list_tasks: when they ask about their tasks or to-do list.\n' +
+  '- complete_task: when they finish a task.\n' +
+  '- delete_task: when they want to remove a task.\n' +
+  '- start_pomodoro: when they say "start a pomodoro" or "study with timer".\n' +
+  '- create_flashcard: when they want to save a fact, definition, or concept to study later.\n' +
+  '- quiz_me: when study mode is on and it\'s time to quiz them, or when they ask to be quizzed.\n' +
+  '- generate_timetable: when they ask for their schedule as a PDF or want to see their week/month. The bot will send the PDF file automatically.\n' +
   '\n' +
   'Do NOT ask the user for confirmation before calling a tool. Just call it.';
 

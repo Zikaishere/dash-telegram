@@ -6,6 +6,8 @@ const setName = require('./setName');
 const setTone = require('./setTone');
 const wipe = require('./wipe');
 const adminHandlers = require('./admin');
+const study = require('./study');
+const timetable = require('./timetable');
 
 const handlers = {
   [start.command]: start.handler,
@@ -15,6 +17,8 @@ const handlers = {
   [setName.command]: setName.handler,
   [setTone.command]: setTone.handler,
   [wipe.command]: wipe.handler,
+  [study.command]: study.handler,
+  [timetable.command]: timetable.handler,
   stats: adminHandlers.stats,
   broadcast: adminHandlers.broadcast,
 };
