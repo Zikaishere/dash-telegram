@@ -17,10 +17,13 @@
 - `src/database/models/Event.js` — Mongoose schema; `userId` + `start` indexed; title, start, end, allDay, notes
 - `src/database/models/Task.js` — Mongoose schema; `userId` + `completed` indexed; title, dueDate, priority, tags
 - `src/database/models/Flashcard.js` — Mongoose schema; `userId` + `topic` indexed; question, answer, topic, reviewedAt
+- `src/database/models/ErrorLog.js` — Mongoose schema; userId, action, error, stack, context, timestamp; auto-logged on every error
+- `src/database/models/NutritionLog.js` — Mongoose schema; `userId` + `date` indexed; food, mealType, calories, macros, imageUrl
 - `src/services/scheduler.js` — checks every 30s for due reminders and sends via bot
 - `src/services/profileService.js` — builds/updates a persistent user profile every 30 user messages; stored in `Conversation.metadata.profile` and injected into the system prompt on every message
 - `src/services/newsService.js` — fetches BBC RSS daily at 07:00 Africa/Cairo and sends headlines to admin users
 - `src/services/fileParser.js` — extracts text from .txt, .pdf (pdf-parse), .docx (mammoth); truncates at 5000 chars
+- `src/services/diagnosticsService.js` — tracks uptime, message count, provides dashboard + error logging helper; auto-logs errors to ErrorLog collection
 - `src/commands/index.js` — flat map of `{commandName: handlerFn}`; each handler receives `(bot, msg, Conversation)`
 - `src/commands/timezone.js` — `/timezone TZ` stores in `Conversation.metadata.timezone`
 - `src/commands/setName.js` — `/set_name Name` stores preferred name in metadata
@@ -29,7 +32,8 @@
 - `src/commands/wipe.js` — `/wipe` deletes Conversation, Reminders, and Notes for the user
 - `src/commands/study.js` — `/study` toggles `metadata.studyMode` boolean
 - `src/commands/timetable.js` — `/timetable [week|today|month]` generates PDF via GenerateTimetableTool
-- `src/tools/` — `base.js` provides abstract `Tool` class; `reminder.js`, `timer.js`, `weather.js`, `webSearch.js`, `notes.js`, `pdf.js`, `calendar.js`, `tasks.js`, `pomodoro.js`, `study.js`, `timetable.js` implement tools; `index.js` exports singleton `registry` with all tools pre-registered
+- `src/commands/diagnostics.js` — `/diagnostics` (admin) shows uptime, message count, memory, error log, DB stats
+- `src/tools/` — `base.js` provides abstract `Tool` class; `reminder.js`, `timer.js`, `weather.js`, `webSearch.js`, `notes.js`, `pdf.js`, `calendar.js`, `tasks.js`, `pomodoro.js`, `study.js`, `timetable.js`, `nutrition.js` implement tools; `index.js` exports singleton `registry` with all tools pre-registered
 - `src/middleware/rateLimiter.js` — In-memory rate limiter (4 msgs per 5s per user)
 
 ## Tool System
@@ -53,6 +57,22 @@
 - `create_flashcard(userId, question, answer, topic?)` — saves flashcard
 - `quiz_me(userId, topic?)` — picks random flashcard, returns Q&A for AI-led quizzing
 - `generate_timetable(userId, range, startDate?)` — creates visual PDF timetable (week/today/month view)
+- `log_meal(userId, food, mealType?, calories?, protein?, carbs?, fat?, notes?, date?, imageUrl?)` — logs a meal entry for nutrition tracking
+- `get_nutrition_report(userId, from?, to?)` — returns totals + averages for calories and macros in a date range
+
+## Error Logging & Diagnostics
+- `src/database/models/ErrorLog.js` stores every error with userId, action, stack, context
+- Auto-logged from: message processing errors, document parsing errors, polling errors, tool execution errors
+- `incrementMessageCount()` called on every incoming message
+- `getDashboard()` returns uptime, host info, memory, message count, error count, DB stats
+- `/diagnostics` (admin-only) displays full dashboard; `/stats` now includes error count
+- Logging failures are silently ignored — never crashes the bot
+
+## Nutrition Tracking
+- `NutritionLog` model stores food, mealType (breakfast/lunch/dinner/snack), calories, protein, carbs, fat, imageUrl
+- `log_meal` tool upserts a nutrition entry; AI asks for food description and estimated macros
+- `get_nutrition_report` gives daily/range summaries with totals and per-meal averages
+- Image URL field is reserved for future AI vision-based calorie estimation
 
 ## Reminder / Timer System
 - Flow: user asks → OpenAI calls tool → DB save → scheduler polls every 30s → `bot.sendMessage()` on due
@@ -64,7 +84,7 @@
 
 ## Admin System
 - `ADMIN_IDS` env var is a comma-separated list of Telegram user IDs
-- `/stats` and `/broadcast` silently do nothing for non-admin users
+- `/stats`, `/broadcast`, and `/diagnostics` silently do nothing for non-admin users
 - News scheduler sends BBC headlines daily at 07:00 Cairo time to all admin IDs
 
 ## User Customization
@@ -72,6 +92,7 @@
 - `/set_tone tone` — stored in `metadata.tone`; replaces the "concise, clear, direct" instruction with matching tone from TONE_MAP
 - `/study` — toggles `metadata.studyMode`; when ON, AI proactively quizzes and suggests pomodoros
 - `/timetable [week|today|month]` — generates visual PDF timetable via pdfkit
+- `/diagnostics` — admin-only dashboard showing uptime, memory, msg count, error log, DB stats
 - `/reset` — clears messages array + resets tone (keeps profile, timezone, userName, notes)
 - `/wipe` — deletes Conversation document, all Reminders, and all Notes for that user
 

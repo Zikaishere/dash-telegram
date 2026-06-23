@@ -7,6 +7,7 @@ const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
 const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
 const { parseFile } = require('../services/fileParser');
+const { logError, incrementMessageCount } = require('../services/diagnosticsService');
 
 const MAX_MSG_LEN = 4000;
 
@@ -147,6 +148,8 @@ async function startBot() {
     const text = msg.text;
     const userId = String(msg.from.id);
 
+    incrementMessageCount();
+
     if (!text) {
       if (msg.document) {
         await handleDocument(bot, msg);
@@ -176,14 +179,15 @@ async function startBot() {
       await sendLongMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
+      logError({ userId, chatId, action: 'processMessage', error, context: text.slice(0, 200) });
       await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your message. Please try again.');
     }
   });
 
   bot.on('polling_error', async (error) => {
     console.error('Telegram polling error:', error.message);
+    logError({ action: 'pollingError', error, context: error.code });
 
-    // ECONNRESET is a transient network issue — restart polling to recover
     if (error.code === 'EFATAL' || error.message.includes('ECONNRESET')) {
       try {
         await bot.stopPolling();
@@ -229,6 +233,7 @@ async function handleDocument(bot, msg) {
     await sendLongMessage(chatId, response);
   } catch (error) {
     console.error('Error processing document:', error);
+    logError({ userId, chatId, action: 'handleDocument', error, context: msg.document?.file_name });
     await bot.sendMessage(chatId, 'Sorry, I couldn\'t read that file.');
   }
 }

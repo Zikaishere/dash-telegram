@@ -17,6 +17,7 @@ Commands:
 /study - Toggle study mode on/off
 /timetable [week|today|month] - Generate visual PDF schedule
 /wipe - Delete all your data permanently
+/diagnostics - Health report & error log (admin only)
 
 Things I can do:
 - Answer questions and have conversations
@@ -31,6 +32,8 @@ Things I can do:
 - Create flashcards and quiz you (turn on with /study)
 - Start Pomodoro study sessions
 - Generate PDF timetable of your schedule
+- Track nutrition: log meals, calories, protein, carbs, and fat
+- Get a nutrition report summary for any date range
 
 Tips:
 - Timezone defaults to Africa/Cairo — change with /timezone

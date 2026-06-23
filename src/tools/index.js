@@ -39,6 +39,7 @@ const { AddTaskTool, ListTasksTool, CompleteTaskTool, DeleteTaskTool } = require
 const PomodoroTool = require('./pomodoro');
 const { CreateFlashcardTool, QuizMeTool } = require('./study');
 const GenerateTimetableTool = require('./timetable');
+const { LogMealTool, GetNutritionReportTool } = require('./nutrition');
 
 const registry = new ToolRegistry();
 registry.register(new ReminderTool());
@@ -61,5 +62,7 @@ registry.register(new PomodoroTool());
 registry.register(new CreateFlashcardTool());
 registry.register(new QuizMeTool());
 registry.register(new GenerateTimetableTool());
+registry.register(new LogMealTool());
+registry.register(new GetNutritionReportTool());
 
 module.exports = registry;

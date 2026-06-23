@@ -8,6 +8,7 @@ const wipe = require('./wipe');
 const adminHandlers = require('./admin');
 const study = require('./study');
 const timetable = require('./timetable');
+const diagnostics = require('./diagnostics');
 
 const handlers = {
   [start.command]: start.handler,
@@ -19,6 +20,7 @@ const handlers = {
   [wipe.command]: wipe.handler,
   [study.command]: study.handler,
   [timetable.command]: timetable.handler,
+  [diagnostics.command]: diagnostics.handler,
   stats: adminHandlers.stats,
   broadcast: adminHandlers.broadcast,
 };
