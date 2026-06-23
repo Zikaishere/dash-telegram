@@ -38,6 +38,32 @@ const BASE_SYSTEM_CONTENT =
   '\n' +
   'Do NOT ask the user for confirmation before calling a tool. Just call it.';
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isRetryable = err.message && (
+        err.message.includes('ERR_STREAM_PREMATURE_CLOSE') ||
+        err.message.includes('ECONNRESET') ||
+        err.message.includes('ETIMEDOUT') ||
+        err.message.includes('5') ||
+        err.status >= 500
+      );
+      if (isRetryable && i < maxRetries - 1) {
+        console.log(`API call failed (${err.message}), retry ${i + 1}/${maxRetries}...`);
+        await sleep((i + 1) * 2000);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 let client;
 
 function getClient() {
@@ -80,12 +106,12 @@ function buildSystemMessage(userContext, profile, userName, tone) {
 async function generateResponse(messages, userContext) {
   const openai = getClient();
 
-  const completion = await openai.chat.completions.create({
+  const completion = await retry(() => openai.chat.completions.create({
     model: config.model,
     messages: [buildSystemMessage(userContext), ...messages],
     temperature: 0.7,
     max_tokens: 2000,
-  });
+  }));
 
   return completion.choices[0].message.content;
 }
@@ -103,14 +129,14 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
   while (iterations < MAX_ITERATIONS) {
     iterations++;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await retry(() => openai.chat.completions.create({
       model: config.model,
       messages: currentMessages,
       tools: functionDefs.length > 0 ? functionDefs : undefined,
       tool_choice: 'auto',
       temperature: 0.7,
       max_tokens: maxTokens || 2000,
-    });
+    }));
 
     const choice = completion.choices[0];
 
