@@ -131,7 +131,7 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
     let response;
     try {
       response = await generateWithTools(
-        openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel,
+        openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, !!overrideModel,
       );
     } catch (err) {
       if (overrideModel) {

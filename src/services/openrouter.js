@@ -124,15 +124,15 @@ async function generateResponse(messages, userContext) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel) {
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools) {
   const openai = getClient();
-  const functionDefs = toolRegistry.getFunctionDefinitions();
+  const functionDefs = skipTools ? [] : toolRegistry.getFunctionDefinitions();
 
   const systemMsg = buildSystemMessage(userContext, profile, userName, tone);
   const currentMessages = [systemMsg, ...messages];
 
   let iterations = 0;
-  const MAX_ITERATIONS = 15;
+  const MAX_ITERATIONS = skipTools ? 1 : 15;
 
   while (iterations < MAX_ITERATIONS) {
     iterations++;
@@ -141,7 +141,7 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
       model: overrideModel || config.model,
       messages: currentMessages,
       tools: functionDefs.length > 0 ? functionDefs : undefined,
-      tool_choice: 'auto',
+      tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
       temperature: 0.7,
       max_tokens: maxTokens || 2000,
     }));
