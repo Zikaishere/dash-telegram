@@ -63,8 +63,15 @@ async function getMetadata(conversation, key, fallback) {
   return fallback;
 }
 
+function keepTyping(chatId) {
+  const interval = setInterval(() => {
+    bot.sendChatAction(chatId, 'typing').catch(() => {});
+  }, 3500);
+  return () => clearInterval(interval);
+}
+
 async function processConversation(userId, chatId, userContent, isResearch) {
-  await bot.sendChatAction(chatId, 'typing');
+  const stopTyping = keepTyping(chatId);
 
   const timezone = await getMetadata(
     await Conversation.findOne({ userId }).catch(() => null),
@@ -120,6 +127,7 @@ async function processConversation(userId, chatId, userContent, isResearch) {
     updateProfile(userId, conversation, profile);
   }
 
+  stopTyping();
   return response;
 }
 
@@ -202,8 +210,6 @@ async function handleDocument(bot, msg) {
   if (!checkRateLimit(userId)) return;
 
   try {
-    await bot.sendChatAction(chatId, 'typing');
-
     const file = await bot.getFile(msg.document.file_id);
     const fileUrl = `https://api.telegram.org/file/bot${config.telegramToken}/${file.file_path}`;
 
