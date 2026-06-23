@@ -4,6 +4,7 @@ const config = {
   telegramToken: process.env.TELEGRAM_TOKEN,
   openrouterApiKey: process.env.OPENROUTER_API_KEY,
   model: process.env.MODEL || 'openai/gpt-4o-mini',
+  visionModel: process.env.VISION_MODEL || process.env.MODEL || 'openai/gpt-4o-mini',
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/assistant',
   port: parseInt(process.env.PORT, 10) || 3000,
   maxContextMessages: parseInt(process.env.MAX_CONTEXT_MESSAGES, 10) || 25,

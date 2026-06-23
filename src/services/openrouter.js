@@ -123,7 +123,7 @@ async function generateResponse(messages, userContext) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens) {
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel) {
   const openai = getClient();
   const functionDefs = toolRegistry.getFunctionDefinitions();
 
@@ -137,7 +137,7 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
     iterations++;
 
     const completion = await retry(() => openai.chat.completions.create({
-      model: config.model,
+      model: overrideModel || config.model,
       messages: currentMessages,
       tools: functionDefs.length > 0 ? functionDefs : undefined,
       tool_choice: 'auto',

@@ -124,7 +124,7 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
 
   const maxTokens = isResearch ? 16000 : undefined;
   const response = await generateWithTools(
-    openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens,
+    openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, imageUrl ? config.visionModel : undefined,
   );
 
   conversation.messages.push({
