@@ -72,7 +72,7 @@ function keepTyping(chatId) {
   return () => clearInterval(interval);
 }
 
-async function processConversation(userId, chatId, userContent, isResearch) {
+async function processConversation(userId, chatId, userContent, isResearch, imageUrl) {
   const stopTyping = keepTyping(chatId);
 
   const timezone = await getMetadata(
@@ -101,6 +101,16 @@ async function processConversation(userId, chatId, userContent, isResearch) {
     role: m.role,
     content: m.content,
   }));
+
+  if (imageUrl) {
+    const last = openaiMessages[openaiMessages.length - 1];
+    if (last && last.role === 'user') {
+      last.content = [
+        { type: 'text', text: String(last.content) },
+        { type: 'image_url', image_url: { url: imageUrl, detail: 'auto' } },
+      ];
+    }
+  }
 
   let userContext = `User ID: ${userId}\nTimezone: ${timezone}`;
   if (isResearch) {
@@ -145,10 +155,24 @@ async function startBot() {
 
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    const text = msg.text;
+    const text = msg.text || msg.caption;
     const userId = String(msg.from.id);
 
     incrementMessageCount();
+
+    if (msg.photo) {
+      if (!checkRateLimit(userId)) return;
+      if (text && text.startsWith('/')) {
+        const commandMatch = text.match(/^\/(\w+)/);
+        if (commandMatch) {
+          const handler = commandHandlers[commandMatch[1].toLowerCase()];
+          if (handler) { await handler(bot, msg, Conversation); }
+          return;
+        }
+      }
+      await handlePhoto(bot, msg, text);
+      return;
+    }
 
     if (!text) {
       if (msg.document) {
@@ -206,6 +230,25 @@ async function startBot() {
 
   console.log('Bot is running...');
   return bot;
+}
+
+async function handlePhoto(bot, msg, caption) {
+  const chatId = msg.chat.id;
+  const userId = String(msg.from.id);
+
+  try {
+    const photo = msg.photo[msg.photo.length - 1];
+    const file = await bot.getFile(photo.file_id);
+    const imageUrl = `https://api.telegram.org/file/bot${config.telegramToken}/${file.file_path}`;
+
+    const text = caption || 'Analyze this image. If it shows food, estimate the calories and macros, then log it with log_meal. Otherwise describe what you see.';
+    const response = stripMarkdown(await processConversation(userId, chatId, text, false, imageUrl));
+    await sendLongMessage(chatId, response);
+  } catch (error) {
+    console.error('Error processing photo:', error);
+    logError({ userId, chatId, action: 'handlePhoto', error });
+    await bot.sendMessage(chatId, 'Sorry, I couldn\'t process that image.');
+  }
 }
 
 async function handleDocument(bot, msg) {

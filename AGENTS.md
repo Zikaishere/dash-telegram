@@ -72,7 +72,10 @@
 - `NutritionLog` model stores food, mealType (breakfast/lunch/dinner/snack), calories, protein, carbs, fat, imageUrl
 - `log_meal` tool upserts a nutrition entry; AI asks for food description and estimated macros
 - `get_nutrition_report` gives daily/range summaries with totals and per-meal averages
-- Image URL field is reserved for future AI vision-based calorie estimation
+- Image URL field supports vision-based calorie estimation via OpenRouter vision models
+- Photo messages are detected, downloaded from Telegram, and the image URL is passed to the AI as a content array (text + image_url with `detail: auto`)
+- The system prompt instructs the AI to analyze food photos and log meals using `log_meal`
+- Switch the `MODEL` env var to any vision-capable model (e.g. `nvidia/nemotron-3.5-content-safety:free`) for food photo analysis
 
 ## Reminder / Timer System
 - Flow: user asks → OpenAI calls tool → DB save → scheduler polls every 30s → `bot.sendMessage()` on due
