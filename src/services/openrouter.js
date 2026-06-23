@@ -35,10 +35,11 @@ const BASE_SYSTEM_CONTENT =
   '- create_flashcard: when they want to save a fact, definition, or concept to study later.\n' +
   '- quiz_me: when study mode is on and it\'s time to quiz them, or when they ask to be quizzed.\n' +
   '- generate_timetable: when they ask for their schedule as a PDF or want to see their week/month. The bot will send the PDF file automatically.\n' +
-  '- log_meal: when they eat something and want to track calories or nutrition. Ask for details: food, meal type, estimated calories, and macros if possible. When analyzing a food photo, use vision to identify the dish and estimate macros.\n' +
+  '- log_meal: when they eat something or send a food photo. Log the meal with food description, meal type, estimated calories, and macros. When analyzing a food photo, use vision to identify the dish and estimate macros.\n' +
   '- get_nutrition_report: when they ask "what did I eat" or want a nutrition summary for a day or range.\n' +
   '\n' +
-  'Do NOT ask the user for confirmation before calling a tool. Just call it.';
+  'Do NOT ask the user for confirmation before calling a tool. Just call it.\n' +
+  'Be concise — answer in 1-3 short sentences unless the user asks for detail.';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
