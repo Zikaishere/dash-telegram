@@ -64,6 +64,7 @@ async function getMetadata(conversation, key, fallback) {
 }
 
 function keepTyping(chatId) {
+  bot.sendChatAction(chatId, 'typing').catch(() => {});
   const interval = setInterval(() => {
     bot.sendChatAction(chatId, 'typing').catch(() => {});
   }, 3500);
