@@ -7,7 +7,7 @@
 - No test framework is set up
 
 ## Key Structure
-- Entry: `src/index.js` — Express server + boots bot, MongoDB, scheduler, and news scheduler
+- Entry: `src/index.js` — Express server + boots bot, MongoDB, scheduler, and news scheduler; supports `AUTO_UPDATE=1` env var to auto-pull from GitHub on start
 - `src/config/index.js` — reads env vars, validates required keys, exits if missing; parses `ADMIN_IDS` into array
 - `src/bot/index.js` — node-telegram-bot-api with polling; message handler dispatches commands, sends text to AI, or handles uploaded documents (txt/pdf/docx); sendLongMessage chunks at 4000 chars; stripMarkdown preserves `- ` and `1. ` lists
 - `src/services/openrouter.js` — OpenAI SDK pointing at OpenRouter base URL; `generateWithTools()` handles tool calls via `finish_reason === 'tool_calls'` with up to 15 recursive iterations; supports dynamic tone, userName, studyMode in system prompt
