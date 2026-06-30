@@ -1,9 +1,9 @@
 const Tool = require('./base');
-const NutritionLog = require('../database/models/NutritionLog');
+const supabase = require('../services/supabase');
 
 class LogMealTool extends Tool {
   constructor() {
-    super('log_meal', 'Log a meal or food intake for nutrition tracking. Includes calories, protein, carbs, fat, and meal type.');
+    super('log_meal', 'Log a meal or food intake for nutrition tracking.');
   }
 
   getParametersSchema() {
@@ -19,33 +19,30 @@ class LogMealTool extends Tool {
         fat: { type: 'number', description: 'Fat in grams' },
         notes: { type: 'string', description: 'Optional notes' },
         date: { type: 'string', description: 'Date in ISO format (defaults to today)' },
-        imageUrl: { type: 'string', description: 'URL of a food photo (for AI vision analysis)' },
+        imageUrl: { type: 'string', description: 'URL of a food photo' },
       },
       required: ['userId', 'food'],
     };
   }
 
   async execute({ userId, food, mealType, calories, protein, carbs, fat, notes, date, imageUrl }) {
-    const entry = new NutritionLog({
-      userId,
-      food,
-      mealType: mealType || 'snack',
-      calories: calories || 0,
-      protein: protein || 0,
-      carbs: carbs || 0,
-      fat: fat || 0,
-      notes: notes || '',
-      imageUrl: imageUrl || '',
-      date: date ? new Date(date) : new Date(),
-    });
-    await entry.save();
-    return `Logged: ${food} (${mealType || 'snack'}) — ${calories || 0} cal, ${protein || 0}g protein, ${carbs || 0}g carbs, ${fat || 0}g fat`;
+    await supabase.insert('food_log', [{
+      user_id: supabase.dataUserId(userId),
+      food_name: food,
+      meal_type: mealType || 'snack',
+      calories: Math.round(calories || 0),
+      protein: Math.round(protein || 0),
+      carbs: Math.round(carbs || 0),
+      fat: Math.round(fat || 0),
+      date: date || new Date().toISOString().split('T')[0],
+    }]);
+    return `Logged: ${food} (${mealType || 'snack'}) — ${calories || 0} cal`;
   }
 }
 
 class GetNutritionReportTool extends Tool {
   constructor() {
-    super('get_nutrition_report', 'Get a nutrition summary for a date range. Shows totals and averages for calories and macros.');
+    super('get_nutrition_report', 'Get a nutrition summary for a date range.');
   }
 
   getParametersSchema() {
@@ -61,18 +58,17 @@ class GetNutritionReportTool extends Tool {
   }
 
   async execute({ userId, from, to }) {
-    const start = from ? new Date(from) : new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = to ? new Date(to) : new Date(start);
-    end.setHours(23, 59, 59, 999);
+    const start = from || new Date().toISOString().split('T')[0];
+    const end = to || start;
 
-    const entries = await NutritionLog.find({
-      userId,
-      date: { $gte: start, $lte: end },
-    }).sort({ date: 1 });
+    const entries = await supabase.select('food_log', {
+      match: { user_id: supabase.dataUserId(userId) },
+      extraQuery: `&date=gte.${start}&date=lte.${end}`,
+      order: 'date.asc',
+    });
 
-    if (entries.length === 0) {
-      return `No meals logged between ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} and ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`;
+    if (!entries || entries.length === 0) {
+      return `No meals logged in this period.`;
     }
 
     const totals = entries.reduce((acc, e) => ({
@@ -80,13 +76,12 @@ class GetNutritionReportTool extends Tool {
       protein: acc.protein + (e.protein || 0),
       carbs: acc.carbs + (e.carbs || 0),
       fat: acc.fat + (e.fat || 0),
-      meals: acc.meals + 1,
-    }), { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 });
+      count: acc.count + 1,
+    }), { calories: 0, protein: 0, carbs: 0, fat: 0, count: 0 });
 
     const avg = (v) => Math.round(v / entries.length);
-
     const lines = [
-      `Nutrition Report (${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+      `Nutrition Report (${start} — ${end})`,
       `Total meals: ${entries.length}`,
       '',
       'Totals:',
@@ -95,19 +90,12 @@ class GetNutritionReportTool extends Tool {
       `  Carbs:    ${totals.carbs}g`,
       `  Fat:      ${totals.fat}g`,
       '',
-      'Per meal average:',
+      'Per meal avg:',
       `  Calories: ${avg(totals.calories)} cal`,
       `  Protein:  ${avg(totals.protein)}g`,
       `  Carbs:    ${avg(totals.carbs)}g`,
       `  Fat:      ${avg(totals.fat)}g`,
-      '',
-      'Meals:',
-      ...entries.map(e => {
-        const time = e.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        return `  ${time} [${e.mealType}] ${e.food} — ${e.calories || '?'} cal`;
-      }),
     ];
-
     return lines.join('\n');
   }
 }

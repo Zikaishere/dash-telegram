@@ -45,26 +45,32 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function retry(fn, maxRetries = 4) {
+async function retry(fn, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (err) {
       const msg = err.message || '';
       const code = err.code || err.errno || '';
+      const status = err.status || 0;
+      const isRateLimit = status === 429 || msg.includes('429') || msg.includes('rate_limit');
       const isRetryable = (
+        isRateLimit ||
         msg.includes('Premature close') ||
         msg.includes('ECONNRESET') ||
         msg.includes('ETIMEDOUT') ||
-        msg.includes('5') ||
+        status >= 500 ||
+        status === 0 ||
         code === 'ERR_STREAM_PREMATURE_CLOSE' ||
         code === 'ECONNRESET' ||
-        err.status >= 500 ||
         err.type === 'system'
       );
       if (isRetryable && i < maxRetries - 1) {
-        console.log(`API call failed (${msg}), retry ${i + 1}/${maxRetries}...`);
-        await sleep((i + 1) * 2000);
+        const delay = isRateLimit ? Math.min(1000 * Math.pow(2, i + 2), 30000) : (i + 1) * 2000;
+        const jitter = Math.random() * 1000;
+        const totalDelay = delay + jitter;
+        console.log(`API call failed (${msg}), retry ${i + 1}/${maxRetries} in ${Math.round(totalDelay)}ms...`);
+        await sleep(totalDelay);
         continue;
       }
       throw err;
@@ -88,8 +94,8 @@ function getClient() {
   return client;
 }
 
-function buildSystemMessage(userContext, profile, userName, tone) {
-  let content = BASE_SYSTEM_CONTENT;
+function buildSystemMessage(userContext, profile, userName, tone, systemPrompt) {
+  let content = systemPrompt || BASE_SYSTEM_CONTENT;
 
   if (tone && TONE_MAP[tone]) {
     content = content.replace(
@@ -124,11 +130,11 @@ async function generateResponse(messages, userContext) {
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools) {
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
   const openai = getClient();
   const functionDefs = skipTools ? [] : toolRegistry.getFunctionDefinitions();
 
-  const systemMsg = buildSystemMessage(userContext, profile, userName, tone);
+  const systemMsg = buildSystemMessage(userContext, profile, userName, tone, systemPrompt);
   const currentMessages = [systemMsg, ...messages];
 
   let iterations = 0;
@@ -137,14 +143,32 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
   while (iterations < MAX_ITERATIONS) {
     iterations++;
 
-    const completion = await retry(() => openai.chat.completions.create({
-      model: overrideModel || config.model,
-      messages: currentMessages,
-      tools: functionDefs.length > 0 ? functionDefs : undefined,
-      tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
-      temperature: 0.7,
-      max_tokens: maxTokens || 2000,
-    }));
+    let modelToUse = overrideModel || config.model;
+    let usedFallback = false;
+
+    const tryModel = async (model) => {
+      if (usedFallback) console.log(`Rate limited, falling back to ${model}`);
+      return await retry(() => openai.chat.completions.create({
+        model,
+        messages: currentMessages,
+        tools: functionDefs.length > 0 ? functionDefs : undefined,
+        tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
+        temperature: 0.7,
+        max_tokens: maxTokens || 2000,
+      }));
+    };
+
+    let completion;
+    try {
+      completion = await tryModel(modelToUse);
+    } catch (err) {
+      if ((err.status === 429 || (err.message && err.message.includes('429'))) && !usedFallback && config.fallbackModel) {
+        usedFallback = true;
+        completion = await tryModel(config.fallbackModel);
+      } else {
+        throw err;
+      }
+    }
 
     const choice = completion.choices[0];
 

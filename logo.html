@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dash Logo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0D0D0F;
+    font-family: system-ui, -apple-system, sans-serif;
+    gap: 80px;
+    padding: 60px 20px;
+  }
+
+  .section-label {
+    color: #555;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 100px;
+    flex-wrap: wrap;
+  }
+
+  .logo-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-wrapper .label {
+    color: #666;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* --- Primary: Lightning "D" --- */
+  .logo-primary {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #6C5CE7 0%, #00D2D3 100%);
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 60px rgba(108, 92, 231, 0.35);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .logo-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .logo-primary svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  /* --- Secondary: Circle badge --- */
+  .logo-badge {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #6C5CE7 0%, #00D2D3 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 60px rgba(108, 92, 231, 0.35);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .logo-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .logo-badge svg {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* --- Horizontal lockup --- */
+  .lockup {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .lockup .mark {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #6C5CE7 0%, #00D2D3 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .lockup .mark svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .lockup .text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lockup .text .wordmark {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .lockup .text .wordmark span {
+    background: linear-gradient(135deg, #6C5CE7, #00D2D3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lockup .text .tagline {
+    font-size: 11px;
+    color: #555;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* --- Monochrome version --- */
+  .logo-mono {
+    width: 120px;
+    height: 120px;
+    border: 2px solid #2a2a2e;
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-mono svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  .logo-mono-circle {
+    width: 120px;
+    height: 120px;
+    border: 2px solid #2a2a2e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-mono-circle svg {
+    width: 52px;
+    height: 52px;
+  }
+
+  .mono-label {
+    color: #444;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .section-break {
+    width: 100%;
+    max-width: 800px;
+    height: 1px;
+    background: #1e1e21;
+    border: none;
+  }
+</style>
+</head>
+<body>
+
+<div style="text-align:center; margin-bottom: -40px;">
+  <div style="font-size: 11px; color: #444; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px;">Dash — Personal AI Assistant</div>
+  <div style="font-size: 13px; color: #555;">Logo System</div>
+</div>
+
+<!-- Primary versions -->
+<div class="section-label">Symbol</div>
+<div class="row">
+  <div class="logo-wrapper">
+    <div class="logo-primary">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="white"/>
+      </svg>
+    </div>
+    <span class="label">Rounded square</span>
+  </div>
+  <div class="logo-wrapper">
+    <div class="logo-badge">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="white"/>
+      </svg>
+    </div>
+    <span class="label">Circle (avatar)</span>
+  </div>
+</div>
+
+<div class="section-break"></div>
+
+<!-- Horizontal lockup -->
+<div class="section-label">Lockup</div>
+<div class="lockup">
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="white"/>
+    </svg>
+  </div>
+  <div class="text">
+    <div class="wordmark">dash<span>.</span></div>
+    <div class="tagline">AI Assistant</div>
+  </div>
+</div>
+
+<div class="section-break"></div>
+
+<!-- Monochrome -->
+<div class="section-label">Monochrome</div>
+<div class="row">
+  <div class="logo-wrapper">
+    <div class="logo-mono">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#6C5CE7"/>
+      </svg>
+    </div>
+    <span class="mono-label">Outline square</span>
+  </div>
+  <div class="logo-wrapper">
+    <div class="logo-mono-circle">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#6C5CE7"/>
+      </svg>
+    </div>
+    <span class="mono-label">Outline circle</span>
+  </div>
+</div>
+
+<div class="section-break"></div>
+
+<!-- Color palette -->
+<div class="section-label">Color</div>
+<div style="display:flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+  <div style="display:flex; align-items:center; gap:10px; background:#1a1a1d; padding:8px 16px 8px 8px; border-radius:10px;">
+    <div style="width:28px;height:28px;border-radius:6px;background:#6C5CE7;"></div>
+    <span style="color:#888;font-size:12px;font-family:monospace;">#6C5CE7</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; background:#1a1a1d; padding:8px 16px 8px 8px; border-radius:10px;">
+    <div style="width:28px;height:28px;border-radius:6px;background:#00D2D3;"></div>
+    <span style="color:#888;font-size:12px;font-family:monospace;">#00D2D3</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; background:#1a1a1d; padding:8px 16px 8px 8px; border-radius:10px;">
+    <div style="width:28px;height:28px;border-radius:6px;background:#0D0D0F;"></div>
+    <span style="color:#888;font-size:12px;font-family:monospace;">#0D0D0F</span>
+  </div>
+</div>
+
+</body>
+</html>

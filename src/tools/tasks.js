@@ -1,5 +1,10 @@
 const Tool = require('./base');
-const Task = require('../database/models/Task');
+const supabase = require('../services/supabase');
+
+function fmtDate(d) {
+  if (!d) return '';
+  return ' due ' + new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 class AddTaskTool extends Tool {
   constructor() {
@@ -14,22 +19,28 @@ class AddTaskTool extends Tool {
         title: { type: 'string', description: 'Task description' },
         dueDate: { type: 'string', description: 'Optional ISO 8601 due date' },
         priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority level' },
-        tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags (e.g. work, personal, study)' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
       },
       required: ['userId', 'title'],
     };
   }
 
   async execute({ userId, title, dueDate, priority, tags }) {
-    const task = new Task({ userId, title, dueDate: dueDate ? new Date(dueDate) : undefined, priority: priority || 'medium', tags: tags || [] });
-    await task.save();
-    return `Task added: "${title}"${dueDate ? ' due ' + new Date(dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}`;
+    await supabase.insert('todos', {
+      user_id: supabase.dataUserId(userId),
+      title,
+      due_date: dueDate || null,
+      priority: priority || 'medium',
+      tags: tags || [],
+      status: 'pending',
+    });
+    return `Task added: "${title}"${fmtDate(dueDate)}`;
   }
 }
 
 class ListTasksTool extends Tool {
   constructor() {
-    super('list_tasks', 'List the user\'s tasks. Filter by status or tag.');
+    super('list_tasks', "List the user's tasks. Filter by status or tag.");
   }
 
   getParametersSchema() {
@@ -44,18 +55,19 @@ class ListTasksTool extends Tool {
   }
 
   async execute({ userId, filter }) {
-    const query = { userId };
-    if (!filter || filter === 'pending') query.completed = false;
-    else if (filter === 'done') query.completed = true;
-    else if (filter !== 'all') query.tags = filter;
+    const match = { user_id: supabase.dataUserId(userId) };
+    let query = '';
+    if (!filter || filter === 'pending') match.status = 'pending';
+    else if (filter === 'done') match.status = 'done';
+    else if (filter !== 'all') query = `&tags=cs.%7B${filter}%7D`;
 
-    const tasks = await Task.find(query).sort({ dueDate: 1, priority: -1, createdAt: -1 });
-    if (tasks.length === 0) return 'No tasks found.';
+    const tasks = await supabase.select('todos', { match, order: 'due_date.asc.nullslast', extraQuery: query });
+    if (!tasks || tasks.length === 0) return 'No tasks found.';
 
     return tasks.map(t => {
-      const status = t.completed ? 'DONE' : 'PENDING';
-      const due = t.dueDate ? ' due ' + new Date(t.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
-      const tagStr = t.tags.length ? ` [${t.tags.join(', ')}]` : '';
+      const status = t.status === 'done' ? 'DONE' : 'PENDING';
+      const due = t.due_date ? fmtDate(t.due_date) : '';
+      const tagStr = t.tags?.length ? ` [${t.tags.join(', ')}]` : '';
       return `${status} — ${t.title}${due}${tagStr} (${t.priority})`;
     }).join('\n');
   }
@@ -71,16 +83,15 @@ class CompleteTaskTool extends Tool {
       type: 'object',
       properties: {
         userId: { type: 'string', description: "The user's Telegram ID" },
-        taskId: { type: 'string', description: 'The MongoDB _id of the task. Ask the user which task to complete.' },
+        taskId: { type: 'string', description: 'The ID of the task. Ask the user which task to complete.' },
       },
       required: ['userId', 'taskId'],
     };
   }
 
   async execute({ userId, taskId }) {
-    const task = await Task.findOneAndUpdate({ _id: taskId, userId }, { completed: true }, { new: true });
-    if (!task) return 'Task not found.';
-    return `Task completed: "${task.title}"`;
+    await supabase.update('todos', { id: taskId, user_id: supabase.dataUserId(userId) }, { status: 'done' });
+    return `Task completed.`;
   }
 }
 
@@ -94,16 +105,15 @@ class DeleteTaskTool extends Tool {
       type: 'object',
       properties: {
         userId: { type: 'string', description: "The user's Telegram ID" },
-        taskId: { type: 'string', description: 'The MongoDB _id of the task to delete.' },
+        taskId: { type: 'string', description: 'The ID of the task to delete.' },
       },
       required: ['userId', 'taskId'],
     };
   }
 
   async execute({ userId, taskId }) {
-    const task = await Task.findOneAndDelete({ _id: taskId, userId });
-    if (!task) return 'Task not found.';
-    return `Deleted task: "${task.title}"`;
+    await supabase.delete('todos', { id: taskId, user_id: supabase.dataUserId(userId) });
+    return `Task deleted.`;
   }
 }
 
