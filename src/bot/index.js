@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
 const Conversation = require('../database/models/Conversation');
-const { generateWithTools } = require('../services/openrouter');
+const { generateWithTools } = require('../services/nvidia');
 const commandHandlers = require('../commands');
 const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
@@ -106,7 +106,7 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
       content: m.content,
     }));
 
-    if (imageUrl && config.visionModel !== config.model) {
+    if (imageUrl && config.visionModel !== config.nvidiaModel) {
       const last = openaiMessages[openaiMessages.length - 1];
       if (last && last.role === 'user') {
         last.content = [
@@ -127,7 +127,7 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
     }
 
     const maxTokens = isResearch ? 16000 : undefined;
-    const overrideModel = imageUrl && config.visionModel !== config.model ? config.visionModel : undefined;
+    const overrideModel = imageUrl && config.visionModel !== config.nvidiaModel ? config.visionModel : undefined;
     let response;
     try {
       response = await generateWithTools(

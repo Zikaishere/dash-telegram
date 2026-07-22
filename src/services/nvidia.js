@@ -69,7 +69,7 @@ async function retry(fn, maxRetries = 5) {
         const delay = isRateLimit ? Math.min(1000 * Math.pow(2, i + 2), 30000) : (i + 1) * 2000;
         const jitter = Math.random() * 1000;
         const totalDelay = delay + jitter;
-        console.log(`OpenRouter API call failed (${msg}), retry ${i + 1}/${maxRetries} in ${Math.round(totalDelay)}ms...`);
+        console.log(`NVIDIA API call failed (${msg}), retry ${i + 1}/${maxRetries} in ${Math.round(totalDelay)}ms...`);
         await sleep(totalDelay);
         continue;
       }
@@ -83,8 +83,8 @@ let client;
 function getClient() {
   if (!client) {
     client = new OpenAI({
-      baseURL: config.openrouterBaseUrl,
-      apiKey: config.openrouterApiKey,
+      baseURL: config.nvidiaBaseUrl,
+      apiKey: config.nvidiaApiKey,
       defaultHeaders: {
         'HTTP-Referer': config.siteUrl,
         'X-Title': config.siteName,
@@ -119,7 +119,7 @@ function buildSystemMessage(userContext, profile, userName, tone, systemPrompt) 
 
 async function generateResponse(messages, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
   const openai = getClient();
-  const modelToUse = overrideModel || config.fallbackModel;
+  const modelToUse = overrideModel || config.nvidiaModel;
 
   const completion = await retry(() => openai.chat.completions.create({
     model: modelToUse,
@@ -144,14 +144,32 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
   while (iterations < MAX_ITERATIONS) {
     iterations++;
 
-    const completion = await retry(() => openai.chat.completions.create({
-      model: overrideModel || config.fallbackModel,
-      messages: currentMessages,
-      tools: functionDefs.length > 0 ? functionDefs : undefined,
-      tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
-      temperature: 0.7,
-      max_tokens: maxTokens || 2000,
-    }));
+    let modelToUse = overrideModel || config.nvidiaModel;
+    let usedFallback = false;
+
+    const tryModel = async (model) => {
+      if (usedFallback) console.log(`NVIDIA rate limited, falling back to ${model}`);
+      return await retry(() => openai.chat.completions.create({
+        model,
+        messages: currentMessages,
+        tools: functionDefs.length > 0 ? functionDefs : undefined,
+        tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
+        temperature: 0.7,
+        max_tokens: maxTokens || 2000,
+      }));
+    };
+
+    let completion;
+    try {
+      completion = await tryModel(modelToUse);
+    } catch (err) {
+      if ((err.status === 429 || (err.message && err.message.includes('429'))) && !usedFallback && config.fallbackModel) {
+        usedFallback = true;
+        completion = await tryModel(config.fallbackModel);
+      } else {
+        throw err;
+      }
+    }
 
     const choice = completion.choices[0];
 

@@ -2,6 +2,11 @@ require('dotenv').config();
 
 const config = {
   telegramToken: process.env.TELEGRAM_TOKEN,
+  // Primary: NVIDIA API
+  nvidiaApiKey: process.env.NVIDIA_API_KEY,
+  nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra',
+  // Fallback: OpenRouter
   openrouterApiKey: process.env.OPENROUTER_API_KEY,
   model: process.env.MODEL || 'openai/gpt-4o-mini',
   fallbackModel: process.env.FALLBACK_MODEL || 'nvidia/nemotron-3-super-120b-a12b:free',
@@ -18,7 +23,7 @@ const config = {
   supabaseUserId: process.env.SUPABASE_USER_ID || null,
 };
 
-const requiredKeys = ['telegramToken', 'openrouterApiKey'];
+const requiredKeys = ['telegramToken', 'nvidiaApiKey', 'openrouterApiKey'];
 
 for (const key of requiredKeys) {
   if (!config[key]) {
