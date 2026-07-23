@@ -1,4 +1,4 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
@@ -36,7 +36,7 @@ class WeatherTool extends Tool {
       current_weather: 'true',
       daily: 'temperature_2m_max,temperature_2m_min,weathercode',
       timezone: 'auto',
-      forecast_days: 3,
+      forecast_days: '3',
     });
 
     const res = await fetch(`${WEATHER_URL}?${params}`);

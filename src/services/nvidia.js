@@ -11,7 +11,7 @@ const TONE_MAP = {
 const BASE_SYSTEM_CONTENT =
   'You are Dash, a helpful and intelligent personal AI assistant. ' +
   'You are concise, clear, and direct. ' +
-  'You act as a personal assistant and remember the user\'s projects, tasks, goals, and preferences. ' +
+  "You act as a personal assistant and remember the user's projects, tasks, goals, and preferences. " +
   'Do NOT use any markdown formatting whatsoever. Use plain text only. No asterisks, backticks, underscores, or brackets. ' +
   '\n\n' +
   'TOOLS — call these immediately when the user asks:\n' +
@@ -79,6 +79,7 @@ async function retry(fn, maxRetries = 5) {
 }
 
 let client;
+let visionClient;
 
 function getClient() {
   if (!client) {
@@ -92,6 +93,20 @@ function getClient() {
     });
   }
   return client;
+}
+
+function getVisionClient() {
+  if (!visionClient) {
+    visionClient = new OpenAI({
+      baseURL: config.nvidiaBaseUrl,
+      apiKey: config.nvidiaApiKey,
+      defaultHeaders: {
+        'HTTP-Referer': config.siteUrl,
+        'X-Title': config.siteName,
+      },
+    });
+  }
+  return visionClient;
 }
 
 function buildSystemMessage(userContext, profile, userName, tone, systemPrompt) {
@@ -131,7 +146,7 @@ async function generateResponse(messages, userContext, profile, userName, tone, 
   return completion.choices[0].message.content;
 }
 
-async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
+async function generateWithToolsStream(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
   const openai = getClient();
   const functionDefs = skipTools ? [] : toolRegistry.getFunctionDefinitions();
 
@@ -156,6 +171,7 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
         tool_choice: functionDefs.length > 0 ? 'auto' : undefined,
         temperature: 0.7,
         max_tokens: maxTokens || 2000,
+        stream: true,
       }));
     };
 
@@ -169,6 +185,14 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
       } else {
         throw err;
       }
+    }
+
+    if (completion[Symbol.asyncIterator]) {
+      // Streaming response - return async iterator
+      return {
+        stream: completion,
+        isStream: true,
+      };
     }
 
     const choice = completion.choices[0];
@@ -207,4 +231,66 @@ async function generateWithTools(messages, toolRegistry, userContext, profile, u
   return 'Reached maximum tool call iterations. Please try a simpler request.';
 }
 
-module.exports = { generateResponse, generateWithTools, buildSystemMessage };
+async function generateWithTools(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
+  // For non-streaming calls (like tools), use the streaming version but consume fully
+  const result = await generateWithToolsStream(messages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt);
+  
+  if (result && result.isStream) {
+    let fullContent = '';
+    for await (const chunk of result.stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) fullContent += content;
+    }
+    return fullContent;
+  }
+  
+  return result;
+}
+
+async function generateStream(messages, userContext, profile, userName, tone, maxTokens, overrideModel, skipTools, systemPrompt) {
+  const openai = getClient();
+  const modelToUse = overrideModel || config.nvidiaModel;
+
+  const stream = await retry(() => openai.chat.completions.create({
+    model: modelToUse,
+    messages: [buildSystemMessage(userContext, profile, userName, tone, systemPrompt), ...messages],
+    temperature: 0.7,
+    max_tokens: maxTokens || 2000,
+    stream: true,
+  }));
+
+  return stream;
+}
+
+async function generateVisionStream(imageUrl, prompt, maxTokens) {
+  const openai = getVisionClient();
+  const modelToUse = config.visionModel;
+
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: imageUrl, detail: 'auto' } },
+      ],
+    },
+  ];
+
+  const stream = await retry(() => openai.chat.completions.create({
+    model: modelToUse,
+    messages,
+    temperature: 0.7,
+    max_tokens: maxTokens || 2000,
+    stream: true,
+  }));
+
+  return stream;
+}
+
+module.exports = { 
+  generateResponse, 
+  generateWithTools, 
+  buildSystemMessage,
+  generateStream,
+  generateVisionStream,
+};

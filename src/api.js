@@ -1,5 +1,9 @@
 const express = require('express');
-const supabase = require('./services/supabase');
+const Conversation = require('./database/models/Conversation');
+const Note = require('./database/models/Note');
+const Event = require('./database/models/Event');
+const Task = require('./database/models/Task');
+const NutritionLog = require('./database/models/NutritionLog');
 const { generateWithTools } = require('./services/openrouter');
 const toolRegistry = require('./tools');
 
@@ -33,14 +37,14 @@ router.get('/tasks', async (req, res) => {
     const { userId, status, tag } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
 
-    const uid = supabase.dataUserId(userId);
-    const match = { user_id: uid };
-    let extra = '';
+    const match = { userId };
     if (status === 'done') match.status = 'done';
     else if (status === 'pending') match.status = 'pending';
-    if (tag) extra = `&tags=cs.%7B${tag}%7D`;
 
-    const tasks = await supabase.select('todos', { match, order: 'created_at.desc', extraQuery: extra });
+    let query = Task.find(match).sort({ dueDate: 1, createdAt: -1 });
+    if (tag) query = query.find({ tags: tag });
+
+    const tasks = await query.exec();
     res.json(tasks || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -51,11 +55,12 @@ router.post('/tasks', async (req, res) => {
   try {
     const { userId, title, dueDate, priority, tags } = req.body;
     if (!userId || !title) return res.status(400).json({ error: 'userId and title required' });
-    const [task] = await supabase.insert('todos', [{
-      user_id: supabase.dataUserId(userId), title, due_date: dueDate || null,
+    const task = new Task({
+      userId, title, dueDate: dueDate || null,
       priority: priority || 'medium', tags: tags || [], status: 'pending',
-    }]);
-    res.json(task || { success: true });
+    });
+    await task.save();
+    res.json(task);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -63,8 +68,9 @@ router.post('/tasks', async (req, res) => {
 
 router.patch('/tasks/:id', async (req, res) => {
   try {
-    await supabase.update('todos', { id: req.params.id }, req.body);
-    res.json({ success: true });
+    const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -72,7 +78,7 @@ router.patch('/tasks/:id', async (req, res) => {
 
 router.delete('/tasks/:id', async (req, res) => {
   try {
-    await supabase.delete('todos', { id: req.params.id });
+    await Task.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -84,11 +90,13 @@ router.get('/events', async (req, res) => {
   try {
     const { userId, from, to } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const match = { user_id: supabase.dataUserId(userId) };
-    let extra = '';
-    if (from) extra += `&start_time=gte.${from}`;
-    if (to) extra += `&start_time=lte.${to}`;
-    const events = await supabase.select('calendar_events', { match, order: 'start_time.asc', extraQuery: extra });
+
+    const match = { userId };
+    if (from || to) match.start = {};
+    if (from) match.start.$gte = new Date(from);
+    if (to) match.start.$lte = new Date(to);
+
+    const events = await Event.find(match).sort({ start: 1 });
     res.json(events || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -99,11 +107,12 @@ router.post('/events', async (req, res) => {
   try {
     const { userId, title, start, end, allDay, notes } = req.body;
     if (!userId || !title || !start) return res.status(400).json({ error: 'userId, title and start required' });
-    const [event] = await supabase.insert('calendar_events', [{
-      user_id: supabase.dataUserId(userId), title, start_time: start, end_time: end || null,
-      all_day: allDay || false, notes: notes || '',
-    }]);
-    res.json(event || { success: true });
+    const event = new Event({
+      userId, title, start: new Date(start), end: end ? new Date(end) : null,
+      allDay: allDay || false, notes: notes || '',
+    });
+    await event.save();
+    res.json(event);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -111,7 +120,7 @@ router.post('/events', async (req, res) => {
 
 router.delete('/events/:id', async (req, res) => {
   try {
-    await supabase.delete('calendar_events', { id: req.params.id });
+    await Event.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -123,9 +132,17 @@ router.get('/notes', async (req, res) => {
   try {
     const { userId, query } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const match = { user_id: supabase.dataUserId(userId) };
-    const extra = query ? `&or=(key.ilike.%25${query}%25,content.ilike.%25${query}%25,tags.cs.%7B${query}%7D)` : '';
-    const notes = await supabase.select('notes', { match, order: 'updated_at.desc', extraQuery: extra });
+
+    let notes;
+    if (query) {
+      const regex = new RegExp(query, 'i');
+      notes = await Note.find({
+        userId,
+        $or: [{ key: regex }, { content: regex }, { tags: regex }],
+      }).sort({ updatedAt: -1 }).limit(10);
+    } else {
+      notes = await Note.find({ userId }).sort({ updatedAt: -1 });
+    }
     res.json(notes || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -137,13 +154,16 @@ router.post('/notes', async (req, res) => {
     const { userId, key, content, tags } = req.body;
     if (!userId || !key || !content) return res.status(400).json({ error: 'userId, key and content required' });
 
-    const existing = await supabase.select('notes', { match: { user_id: supabase.dataUserId(userId), key } });
-    if (existing && existing.length > 0) {
-      await supabase.update('notes', { id: existing[0].id }, { content, tags: tags || [] });
-      res.json(existing[0]);
+    const existing = await Note.findOne({ userId, key });
+    if (existing) {
+      existing.content = content;
+      existing.tags = tags || [];
+      await existing.save();
+      res.json(existing);
     } else {
-      const [note] = await supabase.insert('notes', [{ user_id: supabase.dataUserId(userId), key, title: key, content, tags: tags || [] }]);
-      res.json(note || { success: true });
+      const note = new Note({ userId, key, title: key, content, tags: tags || [] });
+      await note.save();
+      res.json(note);
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -154,7 +174,7 @@ router.delete('/notes/:key', async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    await supabase.delete('notes', { user_id: supabase.dataUserId(userId), key: req.params.key });
+    await Note.deleteOne({ userId, key: req.params.key });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -166,11 +186,13 @@ router.get('/nutrition', async (req, res) => {
   try {
     const { userId, from, to } = req.query;
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const match = { user_id: supabase.dataUserId(userId) };
-    let extra = '';
-    if (from) extra += `&date=gte.${from}`;
-    if (to) extra += `&date=lte.${to}`;
-    const entries = await supabase.select('food_log', { match, order: 'logged_at.desc', extraQuery: extra });
+
+    const match = { userId };
+    if (from || to) match.date = {};
+    if (from) match.date.$gte = new Date(from);
+    if (to) match.date.$lte = new Date(to);
+
+    const entries = await NutritionLog.find(match).sort({ date: -1 });
     res.json(entries || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -181,13 +203,15 @@ router.post('/nutrition', async (req, res) => {
   try {
     const { userId, date, mealType, food, calories, protein, carbs, fat, notes, imageUrl } = req.body;
     if (!userId || !food) return res.status(400).json({ error: 'userId and food required' });
-    const [entry] = await supabase.insert('food_log', [{
-      user_id: supabase.dataUserId(userId), food_name: food,
-      meal_type: mealType || 'snack', date: date || new Date().toISOString().split('T')[0],
+    const entry = new NutritionLog({
+      userId, food,
+      mealType: mealType || 'snack', date: date ? new Date(date) : new Date(),
       calories: Math.round(calories || 0), protein: Math.round(protein || 0),
       carbs: Math.round(carbs || 0), fat: Math.round(fat || 0),
-    }]);
-    res.json(entry || { success: true });
+      notes: notes || '', imageUrl: imageUrl || '',
+    });
+    await entry.save();
+    res.json(entry);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

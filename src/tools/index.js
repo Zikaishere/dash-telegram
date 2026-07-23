@@ -1,32 +1,5 @@
-class ToolRegistry {
-  constructor() {
-    this.tools = new Map();
-  }
-
-  register(tool) {
-    this.tools.set(tool.name, tool);
-  }
-
-  get(name) {
-    return this.tools.get(name);
-  }
-
-  getAll() {
-    return Array.from(this.tools.values());
-  }
-
-  getFunctionDefinitions() {
-    return this.getAll().map((tool) => tool.toFunctionDefinition());
-  }
-
-  async execute(name, params) {
-    const tool = this.get(name);
-    if (!tool) {
-      throw new Error(`Tool "${name}" not found`);
-    }
-    return tool.execute(params);
-  }
-}
+const { Tool } = require('./base');
+const ToolRegistry = require('./base').ToolRegistry;
 
 const ReminderTool = require('./reminder');
 const TimerTool = require('./timer');
@@ -39,7 +12,14 @@ const { AddTaskTool, ListTasksTool, CompleteTaskTool, DeleteTaskTool } = require
 const PomodoroTool = require('./pomodoro');
 const { CreateFlashcardTool, QuizMeTool } = require('./study');
 const GenerateTimetableTool = require('./timetable');
-const { LogMealTool, GetNutritionReportTool } = require('./nutrition');
+const { 
+  LogMealTool, 
+  GetDailySummaryTool, 
+  GetWeeklyReportTool, 
+  SetGoalsTool, 
+  LogWeightTool, 
+  GetWeightHistoryTool 
+} = require('./nutrition');
 
 const registry = new ToolRegistry();
 registry.register(new ReminderTool());
@@ -63,6 +43,10 @@ registry.register(new CreateFlashcardTool());
 registry.register(new QuizMeTool());
 registry.register(new GenerateTimetableTool());
 registry.register(new LogMealTool());
-registry.register(new GetNutritionReportTool());
+registry.register(new GetDailySummaryTool());
+registry.register(new GetWeeklyReportTool());
+registry.register(new SetGoalsTool());
+registry.register(new LogWeightTool());
+registry.register(new GetWeightHistoryTool());
 
 module.exports = registry;

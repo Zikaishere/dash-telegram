@@ -1,4 +1,4 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 const Reminder = require('../database/models/Reminder');
 
 class ReminderTool extends Tool {

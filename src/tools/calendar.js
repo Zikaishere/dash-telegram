@@ -1,5 +1,5 @@
-const Tool = require('./base');
-const supabase = require('../services/supabase');
+const { Tool } = require('./base');
+const Event = require('../database/models/Event');
 
 function fmtTime(d) {
   return new Date(d).toLocaleString('en-US', {
@@ -27,13 +27,14 @@ class AddEventTool extends Tool {
   }
 
   async execute({ userId, title, start, end, notes }) {
-    await supabase.insert('calendar_events', [{
-      user_id: supabase.dataUserId(userId),
+    const event = new Event({
+      userId,
       title,
-      start_time: start,
-      end_time: end || null,
+      start: new Date(start),
+      end: end ? new Date(end) : null,
       notes: notes || '',
-    }]);
+    });
+    await event.save();
     return `Event added: "${title}" at ${fmtTime(start)}`;
   }
 }
@@ -56,15 +57,14 @@ class GetEventsTool extends Tool {
   }
 
   async execute({ userId, from, to }) {
-    const events = await supabase.select('calendar_events', {
-      match: { user_id: supabase.dataUserId(userId) },
-      extraQuery: `&start_time=gte.${from}&start_time=lte.${to}`,
-      order: 'start_time.asc',
-    });
+    const events = await Event.find({
+      userId,
+      start: { $gte: new Date(from), $lte: new Date(to) },
+    }).sort({ start: 1 });
 
     if (!events || events.length === 0) return 'No events in this period.';
     return events.map(e => {
-      const time = fmtTime(e.start_time);
+      const time = fmtTime(e.start);
       return `${time} — ${e.title}${e.notes ? ' (' + e.notes + ')' : ''}`;
     }).join('\n');
   }
@@ -87,7 +87,8 @@ class DeleteEventTool extends Tool {
   }
 
   async execute({ userId, eventId }) {
-    await supabase.delete('calendar_events', { id: eventId, user_id: supabase.dataUserId(userId) });
+    const result = await Event.deleteOne({ _id: eventId, userId });
+    if (result.deletedCount === 0) return 'Event not found.';
     return 'Event deleted.';
   }
 }

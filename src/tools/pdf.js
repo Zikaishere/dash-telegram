@@ -1,4 +1,4 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 
 class CreatePdfTool extends Tool {
   constructor() {

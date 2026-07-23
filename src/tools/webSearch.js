@@ -1,4 +1,4 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 
 const SEARCH_URL = 'https://html.duckduckgo.com/html/';
 
@@ -78,7 +78,15 @@ class WebSearchTool extends Tool {
   }
 
   _stripTags(str) {
-    return str.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/\s+/g, ' ').trim();
+    return str
+      .replace(/<[^>]*>/g, '')
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>')
+      .replace(/"/g, '"')
+      .replace(/'/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }
 

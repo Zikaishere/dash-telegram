@@ -1,5 +1,5 @@
-const Tool = require('./base');
-const supabase = require('../services/supabase');
+const { Tool } = require('./base');
+const Note = require('../database/models/Note');
 
 class SaveNoteTool extends Tool {
   constructor() {
@@ -20,20 +20,14 @@ class SaveNoteTool extends Tool {
   }
 
   async execute({ userId, key, content, tags }) {
-    const existing = await supabase.select('notes', {
-      match: { user_id: supabase.dataUserId(userId), key },
-    });
+    const existing = await Note.findOne({ userId, key });
 
-    if (existing && existing.length > 0) {
-      await supabase.update('notes', { id: existing[0].id }, { content, tags: tags || [] });
+    if (existing) {
+      existing.content = content;
+      existing.tags = tags || [];
+      await existing.save();
     } else {
-      await supabase.insert('notes', [{
-        user_id: supabase.dataUserId(userId),
-        key,
-        title: key,
-        content,
-        tags: tags || [],
-      }]);
+      await Note.create({ userId, key, title: key, content, tags: tags || [] });
     }
     return `Saved note "${key}".`;
   }
@@ -56,9 +50,9 @@ class GetNoteTool extends Tool {
   }
 
   async execute({ userId, key }) {
-    const notes = await supabase.select('notes', { match: { user_id: supabase.dataUserId(userId), key } });
-    if (!notes || notes.length === 0) return `No note found with key "${key}".`;
-    return `Note "${key}": ${notes[0].content}`;
+    const note = await Note.findOne({ userId, key });
+    if (!note) return `No note found with key "${key}".`;
+    return `Note "${key}": ${note.content}`;
   }
 }
 
@@ -79,12 +73,11 @@ class SearchNotesTool extends Tool {
   }
 
   async execute({ userId, query }) {
-    const notes = await supabase.select('notes', {
-      match: { user_id: supabase.dataUserId(userId) },
-      extraQuery: `&or=(key.ilike.%25${query}%25,content.ilike.%25${query}%25,tags.cs.%7B${query}%7D)`,
-      order: 'updated_at.desc',
-      range: { offset: 0 },
-    });
+    const regex = new RegExp(query, 'i');
+    const notes = await Note.find({
+      userId,
+      $or: [{ key: regex }, { content: regex }, { tags: regex }],
+    }).sort({ updatedAt: -1 }).limit(10);
 
     if (!notes || notes.length === 0) return 'No matching notes found.';
 
@@ -112,7 +105,8 @@ class DeleteNoteTool extends Tool {
   }
 
   async execute({ userId, key }) {
-    await supabase.delete('notes', { user_id: supabase.dataUserId(userId), key });
+    const result = await Note.deleteOne({ userId, key });
+    if (result.deletedCount === 0) return `Note "${key}" not found.`;
     return `Deleted note "${key}".`;
   }
 }

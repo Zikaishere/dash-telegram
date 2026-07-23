@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
 const Conversation = require('../database/models/Conversation');
-const { generateWithTools } = require('../services/nvidia');
+const { generateWithTools, generateStream, generateVisionStream } = require('../services/nvidia');
 const commandHandlers = require('../commands');
 const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
@@ -128,11 +128,78 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
 
     const maxTokens = isResearch ? 16000 : undefined;
     const overrideModel = imageUrl && config.visionModel !== config.nvidiaModel ? config.visionModel : undefined;
-    let response;
+    let response = '';
+    
     try {
-      response = await generateWithTools(
-        openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, overrideModel, !!overrideModel,
-      );
+      if (imageUrl && overrideModel) {
+        // Use vision streaming for images
+        const stream = await generateVisionStream(imageUrl, userContent, maxTokens);
+        let messageId = null;
+        let buffer = '';
+        const CHUNK_SIZE = 100; // Send update every 100 chars
+        
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            buffer += content;
+            response += content;
+            
+            if (buffer.length >= CHUNK_SIZE) {
+              if (!messageId) {
+                const sent = await bot.sendMessage(chatId, stripMarkdown(buffer));
+                messageId = sent.message_id;
+              } else {
+                await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
+              }
+              buffer = '';
+            }
+          }
+        }
+        
+        // Send final buffer
+        if (buffer.length > 0) {
+          if (!messageId) {
+            await bot.sendMessage(chatId, stripMarkdown(buffer));
+          } else {
+            await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
+          }
+        }
+      } else {
+        // Regular text streaming
+        const stream = await generateStream(
+          openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, undefined, false
+        );
+        
+        let messageId = null;
+        let buffer = '';
+        const CHUNK_SIZE = 100;
+        
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            buffer += content;
+            response += content;
+            
+            if (buffer.length >= CHUNK_SIZE) {
+              if (!messageId) {
+                const sent = await bot.sendMessage(chatId, stripMarkdown(buffer));
+                messageId = sent.message_id;
+              } else {
+                await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
+              }
+              buffer = '';
+            }
+          }
+        }
+        
+        if (buffer.length > 0) {
+          if (!messageId) {
+            await bot.sendMessage(chatId, stripMarkdown(buffer));
+          } else {
+            await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
+          }
+        }
+      }
     } catch (err) {
       if (overrideModel) {
         console.error('Vision model failed, falling back to default:', err.message);
@@ -140,6 +207,7 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
         if (last && last.role === 'user') {
           last.content = userContent;
         }
+        // Fallback to non-streaming
         response = await generateWithTools(
           openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, undefined,
         );

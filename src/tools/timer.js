@@ -1,11 +1,11 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 const Reminder = require('../database/models/Reminder');
 
 class TimerTool extends Tool {
   constructor() {
     super(
       'create_timer',
-      'Create a timer (countdown) for the user. Use this when they say things like "set a timer for 10 minutes" or "remind me in 5 minutes". Do NOT use create_reminder for short timers, use this instead.',
+      'Create a timer (countdown) for the user. Use this when they say things like "set a timer for 10 minutes" or "remind me in 5 minutes". Do NOT use create_reminder for short countdowns — use this instead.',
     );
   }
 

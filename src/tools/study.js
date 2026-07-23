@@ -1,4 +1,4 @@
-const Tool = require('./base');
+const { Tool } = require('./base');
 const Flashcard = require('../database/models/Flashcard');
 
 class CreateFlashcardTool extends Tool {

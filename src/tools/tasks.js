@@ -1,5 +1,5 @@
-const Tool = require('./base');
-const supabase = require('../services/supabase');
+const { Tool } = require('./base');
+const Task = require('../database/models/Task');
 
 function fmtDate(d) {
   if (!d) return '';
@@ -26,14 +26,15 @@ class AddTaskTool extends Tool {
   }
 
   async execute({ userId, title, dueDate, priority, tags }) {
-    await supabase.insert('todos', {
-      user_id: supabase.dataUserId(userId),
+    const task = new Task({
+      userId,
       title,
-      due_date: dueDate || null,
+      dueDate: dueDate ? new Date(dueDate) : null,
       priority: priority || 'medium',
       tags: tags || [],
       status: 'pending',
     });
+    await task.save();
     return `Task added: "${title}"${fmtDate(dueDate)}`;
   }
 }
@@ -55,18 +56,24 @@ class ListTasksTool extends Tool {
   }
 
   async execute({ userId, filter }) {
-    const match = { user_id: supabase.dataUserId(userId) };
+    const match = { userId };
     let query = '';
     if (!filter || filter === 'pending') match.status = 'pending';
     else if (filter === 'done') match.status = 'done';
-    else if (filter !== 'all') query = `&tags=cs.%7B${filter}%7D`;
+    else if (filter !== 'all') query = filter; // tag filter
 
-    const tasks = await supabase.select('todos', { match, order: 'due_date.asc.nullslast', extraQuery: query });
+    let tasks;
+    if (query) {
+      tasks = await Task.find({ userId, tags: query, status: { $ne: 'done' } }).sort({ dueDate: 1, createdAt: -1 });
+    } else {
+      tasks = await Task.find(match).sort({ dueDate: 1, createdAt: -1 });
+    }
+
     if (!tasks || tasks.length === 0) return 'No tasks found.';
 
     return tasks.map(t => {
       const status = t.status === 'done' ? 'DONE' : 'PENDING';
-      const due = t.due_date ? fmtDate(t.due_date) : '';
+      const due = t.dueDate ? fmtDate(t.dueDate) : '';
       const tagStr = t.tags?.length ? ` [${t.tags.join(', ')}]` : '';
       return `${status} — ${t.title}${due}${tagStr} (${t.priority})`;
     }).join('\n');
@@ -90,8 +97,13 @@ class CompleteTaskTool extends Tool {
   }
 
   async execute({ userId, taskId }) {
-    await supabase.update('todos', { id: taskId, user_id: supabase.dataUserId(userId) }, { status: 'done' });
-    return `Task completed.`;
+    const task = await Task.findOneAndUpdate(
+      { _id: taskId, userId },
+      { status: 'done' },
+      { new: true }
+    );
+    if (!task) return 'Task not found.';
+    return `Task completed: "${task.title}"`;
   }
 }
 
@@ -112,8 +124,9 @@ class DeleteTaskTool extends Tool {
   }
 
   async execute({ userId, taskId }) {
-    await supabase.delete('todos', { id: taskId, user_id: supabase.dataUserId(userId) });
-    return `Task deleted.`;
+    const result = await Task.deleteOne({ _id: taskId, userId });
+    if (result.deletedCount === 0) return 'Task not found.';
+    return 'Task deleted.';
   }
 }
 
