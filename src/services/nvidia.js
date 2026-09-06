@@ -52,8 +52,10 @@ async function retry(fn, maxRetries = 5) {
       const code = err.code || err.errno || '';
       const status = err.status || 0;
       const isRateLimit = status === 429 || msg.includes('429') || msg.includes('rate_limit');
+      const isResourceExhausted = msg.includes('ResourceExhausted') || msg.includes('request limit reached');
       const isRetryable = (
         isRateLimit ||
+        isResourceExhausted ||
         msg.includes('Premature close') ||
         msg.includes('ECONNRESET') ||
         msg.includes('ETIMEDOUT') ||
@@ -64,7 +66,9 @@ async function retry(fn, maxRetries = 5) {
         err.type === 'system'
       );
       if (isRetryable && i < maxRetries - 1) {
-        const delay = isRateLimit ? Math.min(1000 * Math.pow(2, i + 2), 30000) : (i + 1) * 2000;
+        const delay = isRateLimit || isResourceExhausted
+          ? Math.min(4000 * Math.pow(2, i), 60000)
+          : (i + 1) * 2000;
         const jitter = Math.random() * 1000;
         const totalDelay = delay + jitter;
         console.log(`NVIDIA API call failed (${msg}), retry ${i + 1}/${maxRetries} in ${Math.round(totalDelay)}ms...`);
@@ -177,7 +181,9 @@ async function generateWithToolsStream(messages, toolRegistry, userContext, prof
     try {
       completion = await tryModel(modelToUse);
     } catch (err) {
-      if ((err.status === 429 || (err.message && err.message.includes('429'))) && !usedFallback && config.fallbackModel) {
+      const msg = String(err.message);
+      const isLimited = err.status === 429 || msg.includes('429') || msg.includes('ResourceExhausted') || msg.includes('request limit reached');
+      if (isLimited && !usedFallback && config.fallbackModel) {
         usedFallback = true;
         completion = await tryModel(config.fallbackModel);
       } else {
@@ -249,15 +255,30 @@ async function generateStream(messages, userContext, profile, userName, tone, ma
   const openai = getClient();
   const modelToUse = overrideModel || config.nvidiaModel;
 
-  const stream = await retry(() => openai.chat.completions.create({
-    model: modelToUse,
-    messages: [buildSystemMessage(userContext, profile, userName, tone, systemPrompt), ...messages],
-    temperature: 0.7,
-    max_tokens: maxTokens || 2000,
-    stream: true,
-  }));
-
-  return stream;
+  try {
+    return await retry(() => openai.chat.completions.create({
+      model: modelToUse,
+      messages: [buildSystemMessage(userContext, profile, userName, tone, systemPrompt), ...messages],
+      temperature: 0.7,
+      max_tokens: maxTokens || 2000,
+      stream: true,
+    }));
+  } catch (err) {
+    const msg = String(err.message);
+    const exhausted = msg.includes('ResourceExhausted') || msg.includes('request limit reached');
+    const rateLimited = err.status === 429 || msg.includes('429');
+    if ((exhausted || rateLimited) && !overrideModel && config.fallbackModel) {
+      console.log(`NVIDIA ${modelToUse} failed, falling back to ${config.fallbackModel}`);
+      return await retry(() => openai.chat.completions.create({
+        model: config.fallbackModel,
+        messages: [buildSystemMessage(userContext, profile, userName, tone, systemPrompt), ...messages],
+        temperature: 0.7,
+        max_tokens: maxTokens || 2000,
+        stream: true,
+      }));
+    }
+    throw err;
+  }
 }
 
 async function generateVisionStream(imageUrl, prompt, maxTokens) {

@@ -9,8 +9,10 @@ const { loadProfile, shouldUpdate, updateProfile } = require('../services/profil
 const { parseFile } = require('../services/fileParser');
 const { handleNaturalLanguage } = require('../services/intentService');
 const { logError, incrementMessageCount } = require('../services/diagnosticsService');
+const ConcurrencyLimiter = require('../services/concurrencyLimiter');
 
 const MAX_MSG_LEN = 4000;
+const aiLimiter = new ConcurrencyLimiter(config.maxConcurrentAi);
 
 async function sendLongMessage(chatId, text) {
   if (text.length <= MAX_MSG_LEN) {
@@ -298,12 +300,15 @@ async function startBot() {
         }
       }
 
-      const response = stripMarkdown(await processConversation(userId, chatId, cleanText, isResearch));
+      const response = stripMarkdown(await aiLimiter.run(() => processConversation(userId, chatId, cleanText, isResearch)));
       await sendLongMessage(chatId, response);
     } catch (error) {
       console.error('Error processing message:', error);
       logError({ userId, chatId, action: 'processMessage', error, context: text.slice(0, 200) });
-      await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your message. Please try again.');
+      const tooBusy = String(error.message).includes('ResourceExhausted');
+      await bot.sendMessage(chatId, tooBusy
+        ? 'I\u2019m a bit overwhelmed right now \u2014 the AI service is at capacity. Try again in a minute.'
+        : 'Sorry, I encountered an error processing your message. Please try again.');
     }
   });
 
@@ -341,7 +346,7 @@ async function handlePhoto(bot, msg, caption) {
     const imageUrl = `https://api.telegram.org/file/bot${config.telegramToken}/${file.file_path}`;
 
     const text = caption || 'Analyze this image. If it shows food, estimate the calories and macros, then log it with log_meal. Otherwise describe what you see.';
-    const response = stripMarkdown(await processConversation(userId, chatId, text, false, imageUrl));
+    const response = stripMarkdown(await aiLimiter.run(() => processConversation(userId, chatId, text, false, imageUrl)));
     await sendLongMessage(chatId, response);
   } catch (error) {
     console.error('Error processing photo:', error);
@@ -371,7 +376,7 @@ async function handleDocument(bot, msg) {
     }
 
     const preamble = `I uploaded a file (${msg.document.file_name}):\n\n`;
-    const response = stripMarkdown(await processConversation(userId, chatId, preamble + extracted));
+    const response = stripMarkdown(await aiLimiter.run(() => processConversation(userId, chatId, preamble + extracted)));
     await sendLongMessage(chatId, response);
   } catch (error) {
     console.error('Error processing document:', error);

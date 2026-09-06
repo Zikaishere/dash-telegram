@@ -15,6 +15,7 @@ const config = {
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/assistant',
   port: parseInt(process.env.PORT, 10) || 3000,
   maxContextMessages: parseInt(process.env.MAX_CONTEXT_MESSAGES, 10) || 25,
+  maxConcurrentAi: parseInt(process.env.MAX_CONCURRENT_AI, 10) || 10,
   openrouterBaseUrl: 'https://openrouter.ai/api/v1',
   siteUrl: process.env.SITE_URL || 'https://github.com/your-username/telegram-ai-assistant',
   siteName: process.env.SITE_NAME || 'TelegramAI',
