@@ -15,6 +15,8 @@ const MAX_MSG_LEN = 4000;
 const aiLimiter = new ConcurrencyLimiter(config.maxConcurrentAi);
 
 async function sendLongMessage(chatId, text) {
+  if (!text || !text.trim()) return;
+
   if (text.length <= MAX_MSG_LEN) {
     await bot.sendMessage(chatId, text);
     return;
@@ -136,70 +138,18 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
       if (imageUrl && overrideModel) {
         // Use vision streaming for images
         const stream = await generateVisionStream(imageUrl, userContent, maxTokens);
-        let messageId = null;
-        let buffer = '';
-        const CHUNK_SIZE = 100; // Send update every 100 chars
-        
         for await (const chunk of stream) {
           const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            buffer += content;
-            response += content;
-            
-            if (buffer.length >= CHUNK_SIZE) {
-              if (!messageId) {
-                const sent = await bot.sendMessage(chatId, stripMarkdown(buffer));
-                messageId = sent.message_id;
-              } else {
-                await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
-              }
-              buffer = '';
-            }
-          }
-        }
-        
-        // Send final buffer
-        if (buffer.length > 0) {
-          if (!messageId) {
-            await bot.sendMessage(chatId, stripMarkdown(buffer));
-          } else {
-            await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
-          }
+          if (content) response += content;
         }
       } else {
         // Regular text streaming
         const stream = await generateStream(
           openaiMessages, toolRegistry, userContext, profile, userName, tone, maxTokens, undefined, false
         );
-        
-        let messageId = null;
-        let buffer = '';
-        const CHUNK_SIZE = 100;
-        
         for await (const chunk of stream) {
           const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            buffer += content;
-            response += content;
-            
-            if (buffer.length >= CHUNK_SIZE) {
-              if (!messageId) {
-                const sent = await bot.sendMessage(chatId, stripMarkdown(buffer));
-                messageId = sent.message_id;
-              } else {
-                await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
-              }
-              buffer = '';
-            }
-          }
-        }
-        
-        if (buffer.length > 0) {
-          if (!messageId) {
-            await bot.sendMessage(chatId, stripMarkdown(buffer));
-          } else {
-            await bot.editMessageText(stripMarkdown(buffer), { chat_id: chatId, message_id: messageId });
-          }
+          if (content) response += content;
         }
       }
     } catch (err) {
