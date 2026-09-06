@@ -43,7 +43,7 @@ async function main() {
 
     const bot = await startBot();
 
-    startScheduler();
+    await startScheduler();
 
     app.listen(config.port, () => {
       console.log(`Server running on port ${config.port}`);

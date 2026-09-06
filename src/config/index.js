@@ -19,8 +19,6 @@ const config = {
   siteUrl: process.env.SITE_URL || 'https://github.com/your-username/telegram-ai-assistant',
   siteName: process.env.SITE_NAME || 'TelegramAI',
   adminIds: (process.env.ADMIN_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
-  // Redis for rate limiting and bullmq
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 };
 
 const requiredKeys = ['telegramToken', 'nvidiaApiKey', 'openrouterApiKey'];
