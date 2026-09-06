@@ -9,7 +9,7 @@ async function handler(bot, msg, Conversation) {
     );
     await bot.sendMessage(
       chatId,
-      'Conversation history cleared and tone reset. Your profile, timezone, and saved notes are kept.',
+      'Conversation history cleared and tone reset. Your profile, timezone, and reminders are kept.',
     );
   } catch (error) {
     console.error('Error resetting conversation:', error);

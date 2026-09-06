@@ -8,7 +8,8 @@ A personal AI assistant powered by Telegram, OpenRouter, and MongoDB. The assist
 - **Conversation Memory** — Persistent history stored in MongoDB (last 25 messages in context)
 - **Typing Indicator** — Shows "typing..." while generating responses
 - **Commands** — `/start`, `/help`, `/reset`
-- **Tool System** — Modular architecture for adding new tools (reminder, notes, weather, calendar, etc.)
+- **Tool System** — Modular architecture for adding new tools (reminder, weather, calendar, tasks, nutrition, etc.)
+- **Natural Language Commands** — Type plain sentences like "schedule math study at 9pm tomorrow" and the bot detects intent automatically (no slash needed)
 - **Docker Support** — Easy deployment with Docker Compose
 - **Express Server** — Health check API
 

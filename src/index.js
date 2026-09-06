@@ -6,7 +6,6 @@ const { execSync } = require('child_process');
 const { connectDatabase, disconnectDatabase } = require('./database');
 const { startBot } = require('./bot');
 const { startScheduler, stopScheduler } = require('./services/scheduler');
-const { startNewsScheduler, stopNewsScheduler } = require('./services/newsService');
 const config = require('./config');
 
 if (process.env.AUTO_UPDATE === '1') {
@@ -45,7 +44,6 @@ async function main() {
     const bot = await startBot();
 
     startScheduler();
-    startNewsScheduler(bot);
 
     app.listen(config.port, () => {
       console.log(`Server running on port ${config.port}`);
@@ -59,7 +57,6 @@ async function main() {
 process.on('SIGINT', async () => {
   console.log('Shutting down gracefully...');
   stopScheduler();
-  stopNewsScheduler();
   await disconnectDatabase();
   process.exit(0);
 });
@@ -67,7 +64,6 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
   console.log('Shutting down gracefully...');
   stopScheduler();
-  stopNewsScheduler();
   await disconnectDatabase();
   process.exit(0);
 });

@@ -1,6 +1,5 @@
 const express = require('express');
 const Conversation = require('./database/models/Conversation');
-const Note = require('./database/models/Note');
 const Event = require('./database/models/Event');
 const Task = require('./database/models/Task');
 const NutritionLog = require('./database/models/NutritionLog');
@@ -121,60 +120,6 @@ router.post('/events', async (req, res) => {
 router.delete('/events/:id', async (req, res) => {
   try {
     await Event.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Notes
-router.get('/notes', async (req, res) => {
-  try {
-    const { userId, query } = req.query;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-
-    let notes;
-    if (query) {
-      const regex = new RegExp(query, 'i');
-      notes = await Note.find({
-        userId,
-        $or: [{ key: regex }, { content: regex }, { tags: regex }],
-      }).sort({ updatedAt: -1 }).limit(10);
-    } else {
-      notes = await Note.find({ userId }).sort({ updatedAt: -1 });
-    }
-    res.json(notes || []);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/notes', async (req, res) => {
-  try {
-    const { userId, key, content, tags } = req.body;
-    if (!userId || !key || !content) return res.status(400).json({ error: 'userId, key and content required' });
-
-    const existing = await Note.findOne({ userId, key });
-    if (existing) {
-      existing.content = content;
-      existing.tags = tags || [];
-      await existing.save();
-      res.json(existing);
-    } else {
-      const note = new Note({ userId, key, title: key, content, tags: tags || [] });
-      await note.save();
-      res.json(note);
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.delete('/notes/:key', async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-    await Note.deleteOne({ userId, key: req.params.key });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -26,7 +26,6 @@ Things I can do:
 - Check weather for any city
 - Search the web for current info
 - Read uploaded files (.txt, .pdf, .docx)
-- Remember things about you permanently
 - Manage your calendar & events
 - Track tasks with priority and due dates
 - Create flashcards and quiz you (turn on with /study)
@@ -36,6 +35,7 @@ Things I can do:
 - Get a nutrition report summary for any date range
 
 Tips:
+- Try asking naturally, e.g. "schedule math study session at 9pm tomorrow"
 - Timezone defaults to Africa/Cairo — change with /timezone
 - Available tones: casual, professional, concise, detailed
 - I remember our past messages for context

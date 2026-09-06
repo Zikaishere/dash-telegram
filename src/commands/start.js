@@ -6,7 +6,7 @@ async function handler(bot, msg) {
     chatId,
     `Hello ${firstName}! I'm Dash, your personal AI assistant.
 
-I can help you with tasks, answer questions, set reminders, check weather, search the web, and remember things about you. Just send a message.
+I can help you with tasks, answer questions, set reminders, check weather, search the web, and track your schedule and nutrition. Just send a message like 'schedule math study at 9pm tomorrow'.
 
 Commands:
 /start - Show this message

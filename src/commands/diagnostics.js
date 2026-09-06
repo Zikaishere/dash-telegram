@@ -20,7 +20,6 @@ async function handler(bot, msg) {
       '',
       'DB Stats:',
       `  Users: ${dash.dbStats.users}`,
-      `  Notes: ${dash.dbStats.notes}`,
       `  Reminders: ${dash.dbStats.reminders} (${dash.dbStats.pendingReminders} pending)`,
       '',
       'Recent Errors:',

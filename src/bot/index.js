@@ -7,6 +7,7 @@ const toolRegistry = require('../tools');
 const { checkRateLimit } = require('../middleware/rateLimiter');
 const { loadProfile, shouldUpdate, updateProfile } = require('../services/profileService');
 const { parseFile } = require('../services/fileParser');
+const { handleNaturalLanguage } = require('../services/intentService');
 const { logError, incrementMessageCount } = require('../services/diagnosticsService');
 
 const MAX_MSG_LEN = 4000;
@@ -121,9 +122,8 @@ async function processConversation(userId, chatId, userContent, isResearch, imag
       userContext +=
         '\n\nResearch Mode: ON\n' +
         'Deeply research the user\'s query. Use web_search multiple times from different angles to gather comprehensive information. ' +
-        'Then compile everything into a thorough, well-structured report. ' +
-        'CRITICAL: You MUST call create_pdf to send the report as a PDF. Do NOT output the report content as text. ' +
-        'After calling create_pdf, reply with a short confirmation like "PDF report sent."';
+        'Then compile everything into a thorough, well-structured report using plain text. ' +
+        'Do not fabricate details — ground every claim in the search results you found.';
     }
 
     const maxTokens = isResearch ? 16000 : undefined;
@@ -289,6 +289,14 @@ async function startBot() {
     try {
       const isResearch = text.startsWith('DRESEARCH');
       const cleanText = isResearch ? text.slice('DRESEARCH'.length).trim() : text;
+
+      if (!isResearch) {
+        const intentResult = await handleNaturalLanguage(userId, cleanText);
+        if (intentResult) {
+          await sendLongMessage(chatId, stripMarkdown(intentResult.reply));
+          return;
+        }
+      }
 
       const response = stripMarkdown(await processConversation(userId, chatId, cleanText, isResearch));
       await sendLongMessage(chatId, response);

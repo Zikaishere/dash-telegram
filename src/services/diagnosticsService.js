@@ -1,7 +1,6 @@
 const ErrorLog = require('../database/models/ErrorLog');
 const Conversation = require('../database/models/Conversation');
 const Reminder = require('../database/models/Reminder');
-const Note = require('../database/models/Note');
 const os = require('os');
 
 const startTime = Date.now();
@@ -27,11 +26,10 @@ function getUptime() {
 }
 
 async function getDashboard() {
-  const [errorCount, recentErrors, userCount, noteCount, reminderCount, pendingReminders] = await Promise.all([
+  const [errorCount, recentErrors, userCount, reminderCount, pendingReminders] = await Promise.all([
     ErrorLog.countDocuments({}),
     ErrorLog.find().sort({ timestamp: -1 }).limit(5).lean(),
     Conversation.countDocuments({}),
-    Note.countDocuments({}),
     Reminder.countDocuments({}),
     Reminder.countDocuments({ notified: false }),
   ]);
@@ -46,7 +44,6 @@ async function getDashboard() {
     recentErrors: recentErrors.map(e => `[${e.timestamp.toISOString().slice(0, 19)}] ${e.error.slice(0, 120)}`),
     dbStats: {
       users: userCount,
-      notes: noteCount,
       reminders: reminderCount,
       pendingReminders,
     },
